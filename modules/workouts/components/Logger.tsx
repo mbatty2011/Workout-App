@@ -21,12 +21,14 @@ import { finishWorkout, discardWorkout } from "@/modules/workouts/actions";
 export function Logger({
   workoutId,
   startedAt,
+  dayLabel = "Workout",
   initialExercises,
   unit,
   exerciseLibrary,
 }: {
   workoutId: string;
   startedAt: string;
+  dayLabel?: string;
   initialExercises: ActiveExercise[];
   unit: string;
   exerciseLibrary: Exercise[];
@@ -176,12 +178,13 @@ export function Logger({
 
   return (
     <div className="space-y-4 pb-2">
-      {/* Session header: live duration + at-a-glance volume */}
+      {/* Session header: day name + live duration + at-a-glance volume */}
       <header className="flex items-end justify-between">
         <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-accent">{dayLabel}</p>
           <Elapsed startedAt={startedAt} />
           <p className="mt-0.5 text-xs text-muted">
-            {doneCount}/{totalSets || 0} sets · {Math.round(totalVolume).toLocaleString()} {unit}
+            {doneCount}/{totalSets || 0} sets done · {Math.round(totalVolume).toLocaleString()} {unit} volume
           </p>
         </div>
         <Button size="sm" disabled={finishing} onClick={handleFinish}>
@@ -190,6 +193,13 @@ export function Logger({
       </header>
 
       <RestTimer autoStartKey={restTick} />
+
+      {/* First-run guidance so the flow is obvious */}
+      {exercises.length > 0 && doneCount === 0 && (
+        <p className="rounded-xl bg-surface px-3 py-2 text-center text-xs text-muted">
+          Enter weight &amp; reps, then tap the <span className="text-accent">✓</span> to log each set. Rest timer starts automatically.
+        </p>
+      )}
 
       {exercises.length === 0 && (
         <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">

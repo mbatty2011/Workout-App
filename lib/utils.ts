@@ -35,6 +35,12 @@ export function startOfTodayISO(): string {
   return d.toISOString();
 }
 
+/** True if the media URL looks like a video (by extension). */
+export function isVideoUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return /\.(mp4|mov|webm|m4v|ogv)(\?|#|$)/i.test(url);
+}
+
 export function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);

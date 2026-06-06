@@ -4,6 +4,7 @@ import { getWorkout, getWorkoutSets } from "@/modules/workouts/queries";
 import { getExerciseMap } from "@/modules/exercises/queries";
 import { getCurrentProfile } from "@/modules/auth/queries";
 import { Card, LinkButton, PageHeader, Pill } from "@/components/ui";
+import { MediaView } from "@/components/MediaView";
 import { setVolume } from "@/lib/utils";
 
 export default async function WorkoutDetailPage({
@@ -57,8 +58,7 @@ export default async function WorkoutDetailPage({
       />
 
       {workout.photo_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={workout.photo_url} alt="" className="aspect-square w-full rounded-2xl object-cover" />
+        <MediaView url={workout.photo_url} controls className="aspect-square w-full rounded-2xl object-cover" />
       )}
 
       {workout.note && <Card className="text-sm text-muted">{workout.note}</Card>}

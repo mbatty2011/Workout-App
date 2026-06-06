@@ -120,8 +120,12 @@ export async function uploadWorkoutPhoto(
 
   const file = formData.get("photo");
   if (!(file instanceof File) || file.size === 0) return { error: "No file" };
-  if (file.size > 10 * 1024 * 1024) return { error: "Image too large (max 10MB)" };
-  if (!file.type.startsWith("image/")) return { error: "Images only" };
+  const isVideo = file.type.startsWith("video/");
+  if (!isVideo && !file.type.startsWith("image/")) return { error: "Images or videos only" };
+  const limit = isVideo ? 50 * 1024 * 1024 : 12 * 1024 * 1024;
+  if (file.size > limit) {
+    return { error: isVideo ? "Video too large (max 50MB)" : "Image too large (max 12MB)" };
+  }
 
   const ext = file.name.split(".").pop() ?? "jpg";
   const path = `${user.id}/${crypto.randomUUID()}.${ext}`;

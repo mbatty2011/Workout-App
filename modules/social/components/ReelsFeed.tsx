@@ -9,6 +9,7 @@ import {
   PlusIcon,
   FeedIcon,
 } from "@/components/icons";
+import { MediaView } from "@/components/MediaView";
 import type { FeedPost } from "@/modules/social/types";
 import { toggleLike } from "@/modules/social/actions";
 
@@ -144,8 +145,7 @@ function Reel({ post }: { post: FeedPost }) {
     >
       {post.photo_url ? (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={post.photo_url} alt="" className="h-full w-full object-cover" />
+          <MediaView url={post.photo_url} className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
         </>
       ) : (

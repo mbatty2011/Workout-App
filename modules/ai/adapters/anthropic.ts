@@ -4,6 +4,7 @@ import type {
   GeneratedSplit,
   PopularContext,
   SplitRequest,
+  SplitImage,
 } from "@/modules/ai/types";
 
 /**
@@ -22,11 +23,49 @@ export class AnthropicSplitProvider implements AISplitProvider {
   async generateSplit(
     request: SplitRequest,
     popular: PopularContext[],
+    image?: SplitImage,
   ): Promise<GeneratedSplit> {
     const popularList = popular
       .slice(0, 40)
       .map((p) => `${p.exercise_name} (${p.muscle_group}) — used ${p.usage_count}×`)
       .join("\n");
+
+    const unit = request.unit ?? "kg";
+    const stats: string[] = [];
+    if (request.currentWeight) stats.push(`current weight ${request.currentWeight}${unit}`);
+    if (request.goalWeight) stats.push(`goal weight ${request.goalWeight}${unit}`);
+    if (request.bodyFatPct) stats.push(`body fat ~${request.bodyFatPct}%`);
+    const statsLine = stats.length
+      ? `Athlete stats: ${stats.join(", ")}. Factor the gap between current and goal weight, and body composition, into volume and exercise selection.`
+      : "";
+    const photoLine = image
+      ? "A physique photo is attached. Briefly assess which muscle groups look underdeveloped relative to the rest and bias the split to bring those up (more volume / priority placement). Keep it encouraging and never make health judgements beyond training focus."
+      : "";
+
+    const promptText = `Design a ${request.daysPerWeek}-day training split.
+Goal: ${request.goal}. Experience: ${request.experience}.
+Available equipment: ${request.equipment.join(", ") || "full gym"}.
+${statsLine}
+${photoLine}
+
+Ground your choices in what people actually use. Here are the most common
+exercises across public routines (anonymized, aggregated). Prefer these where
+they fit the goal and available equipment, but you may add standard staples:
+
+${popularList || "(no aggregated data yet — use well-established staples)"}
+
+Keep it realistic for the experience level. Use only exercises achievable with
+the available equipment. Name each day by its focus (e.g. Push, Pull, Legs,
+Upper, Lower). In 'description', mention any focus areas you prioritized.`;
+
+    const content: Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam> = [];
+    if (image) {
+      content.push({
+        type: "image",
+        source: { type: "base64", media_type: image.mediaType, data: image.base64 },
+      });
+    }
+    content.push({ type: "text", text: promptText });
 
     const tool: Anthropic.Tool = {
       name: "propose_split",
@@ -68,24 +107,7 @@ export class AnthropicSplitProvider implements AISplitProvider {
       max_tokens: 1500,
       tools: [tool],
       tool_choice: { type: "tool", name: "propose_split" },
-      messages: [
-        {
-          role: "user",
-          content: `Design a ${request.daysPerWeek}-day training split.
-Goal: ${request.goal}. Experience: ${request.experience}.
-Available equipment: ${request.equipment.join(", ") || "full gym"}.
-
-Ground your choices in what people actually use. Here are the most common
-exercises across public routines (anonymized, aggregated). Prefer these where
-they fit the goal and available equipment, but you may add standard staples:
-
-${popularList || "(no aggregated data yet — use well-established staples)"}
-
-Keep it realistic for the experience level. Use only exercises achievable with
-the available equipment. Name each day by its focus (e.g. Push, Pull, Legs,
-Upper, Lower).`,
-        },
-      ],
+      messages: [{ role: "user", content }],
     });
 
     const toolUse = message.content.find(

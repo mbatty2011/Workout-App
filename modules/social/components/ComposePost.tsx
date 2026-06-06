@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@/components/ui";
-import { FEATURES } from "@/config/features";
+import { MediaView } from "@/components/MediaView";
+import { CameraIcon } from "@/components/icons";
 import type { Visibility } from "@/lib/database.types";
 import { createPost, uploadPostPhoto } from "@/modules/social/actions";
 
@@ -47,8 +48,7 @@ export function ComposePost({ workoutId }: { workoutId: string | null }) {
 
       {photoUrl ? (
         <div className="relative">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photoUrl} alt="" className="aspect-square w-full rounded-xl object-cover" />
+          <MediaView url={photoUrl} controls className="aspect-square w-full rounded-xl object-cover" />
           <button
             onClick={() => setPhotoUrl(null)}
             className="absolute right-2 top-2 rounded-full bg-bg/80 px-2 py-1 text-xs"
@@ -57,15 +57,11 @@ export function ComposePost({ workoutId }: { workoutId: string | null }) {
           </button>
         </div>
       ) : (
-        <label className="flex h-11 cursor-pointer items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted">
-          {uploading ? "Uploading…" : "📷 Add a photo"}
-          <input type="file" accept="image/*" className="hidden" onChange={onFile} />
+        <label className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm text-muted">
+          <CameraIcon className="h-5 w-5" />
+          {uploading ? "Uploading…" : "Add a photo or video"}
+          <input type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
         </label>
-      )}
-
-      {/* Video posts are a parked module (spec §6.3) — intentionally absent. */}
-      {!FEATURES.videoPosts && (
-        <p className="text-[11px] text-muted">Photos only for now.</p>
       )}
 
       <div className="grid grid-cols-3 gap-1">

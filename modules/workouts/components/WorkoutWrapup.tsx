@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { Button, Card } from "@/components/ui";
+import { MediaView } from "@/components/MediaView";
 import { CameraIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import type { Visibility } from "@/lib/database.types";
@@ -88,11 +89,10 @@ export function WorkoutWrapup({
           className="w-full resize-none rounded-xl border border-border bg-bg p-3 outline-none focus:border-accent"
         />
 
-        <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} />
+        <input ref={inputRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
         {photoUrl ? (
           <div className="relative">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photoUrl} alt="" className="aspect-square w-full rounded-xl object-cover" />
+            <MediaView url={photoUrl} controls className="aspect-square w-full rounded-xl object-cover" />
             <button
               onClick={() => setPhotoUrl(null)}
               className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-1 text-xs text-white"
@@ -105,7 +105,7 @@ export function WorkoutWrapup({
             onClick={() => inputRef.current?.click()}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm text-muted active:bg-bg"
           >
-            <CameraIcon className="h-5 w-5" /> {uploading ? "Uploading…" : "Add a photo"}
+            <CameraIcon className="h-5 w-5" /> {uploading ? "Uploading…" : "Add a photo or video"}
           </button>
         )}
 

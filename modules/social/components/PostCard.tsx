@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card, Pill } from "@/components/ui";
+import { MediaView } from "@/components/MediaView";
 import { relativeTime } from "@/lib/utils";
 import type { FeedPost } from "@/modules/social/types";
 import { LikeButton } from "@/modules/social/components/LikeButton";
@@ -31,12 +32,7 @@ export function PostCard({ post }: { post: FeedPost }) {
       </div>
 
       {post.photo_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={post.photo_url}
-          alt=""
-          className="aspect-square w-full rounded-xl object-cover"
-        />
+        <MediaView url={post.photo_url} controls className="aspect-square w-full rounded-xl object-cover" />
       )}
 
       {post.caption && <p className="text-sm">{post.caption}</p>}

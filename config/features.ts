@@ -17,10 +17,11 @@ export const FEATURES = {
   foodTracker: true, // core (USDA + Open Food Facts)
   weightGoals: true, // core
 
+  videoPosts: true, // enabled: photo + video posts/reels
+
   // Parked — OFF until the constraint in §6 is acceptable:
   appleWatch: false, // requires NATIVE iOS / RN bridge, not web
   spotify: false, // API gated to orgs w/ 250k MAU; dev mode = 5 users
-  videoPosts: false, // storage + moderation + bandwidth cost
 } as const;
 
 export type FeatureKey = keyof typeof FEATURES;

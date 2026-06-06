@@ -58,21 +58,22 @@ export default async function WorkoutPage({
   const exerciseIds = new Set(existingSets.map((s) => s.exercise_id));
 
   let routineDayExerciseIds: string[] = [];
-  if (
-    active.routine_id &&
-    active.routine_day_index != null &&
-    existingSets.length === 0
-  ) {
+  let dayLabel = "Workout";
+  if (active.routine_id && active.routine_day_index != null) {
     const supabase = await createClient();
     const { data: r } = await supabase
       .from("routines")
-      .select("days")
+      .select("name, days")
       .eq("id", active.routine_id)
       .maybeSingle();
     const days = (r?.days ?? []) as RoutineDay[];
     const dayDef = days[active.routine_day_index];
-    routineDayExerciseIds = (dayDef?.exercises ?? []).map((e) => e.exercise_id);
-    routineDayExerciseIds.forEach((id) => exerciseIds.add(id));
+    if (dayDef?.name) dayLabel = dayDef.name;
+    // Pre-load the day's exercises only into a fresh (empty) session.
+    if (existingSets.length === 0) {
+      routineDayExerciseIds = (dayDef?.exercises ?? []).map((e) => e.exercise_id);
+      routineDayExerciseIds.forEach((id) => exerciseIds.add(id));
+    }
   }
 
   const exMap = await getExerciseMap(Array.from(exerciseIds));
@@ -105,6 +106,7 @@ export default async function WorkoutPage({
       <Logger
         workoutId={active.id}
         startedAt={active.started_at}
+        dayLabel={dayLabel}
         initialExercises={initialExercises}
         unit={unit}
         exerciseLibrary={library ?? []}

@@ -1,16 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, Label } from "@/components/ui";
+import { Button, Card, Input, Label } from "@/components/ui";
+import { CameraIcon } from "@/components/icons";
 import { EQUIPMENT } from "@/modules/exercises/constants";
 import { saveGeneratedSplit } from "@/modules/ai/actions";
-import type {
-  Experience,
-  GeneratedSplit,
-  Goal,
-  SplitRequest,
-} from "@/modules/ai/types";
+import type { Experience, GeneratedSplit, Goal } from "@/modules/ai/types";
 
 const GOALS: { value: Goal; label: string }[] = [
   { value: "hypertrophy", label: "Build muscle" },
@@ -30,6 +26,12 @@ export function AISplitWizard() {
   const [daysPerWeek, setDays] = useState(4);
   const [experience, setExperience] = useState<Experience>("intermediate");
   const [equipment, setEquipment] = useState<string[]>([...EQUIPMENT]);
+  const [currentWeight, setCurrentWeight] = useState("");
+  const [goalWeight, setGoalWeight] = useState("");
+  const [bodyFat, setBodyFat] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [split, setSplit] = useState<GeneratedSplit | null>(null);
@@ -41,16 +43,26 @@ export function AISplitWizard() {
     );
   }
 
+  function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    setPhoto(f);
+    setPhotoPreview(f ? URL.createObjectURL(f) : null);
+  }
+
   async function generate() {
     setError(null);
     setLoading(true);
-    const body: SplitRequest = { goal, daysPerWeek, experience, equipment };
+    const fd = new FormData();
+    fd.set("goal", goal);
+    fd.set("daysPerWeek", String(daysPerWeek));
+    fd.set("experience", experience);
+    fd.set("equipment", equipment.join(","));
+    if (currentWeight) fd.set("currentWeight", currentWeight);
+    if (goalWeight) fd.set("goalWeight", goalWeight);
+    if (bodyFat) fd.set("bodyFatPct", bodyFat);
+    if (photo) fd.set("photo", photo);
     try {
-      const res = await fetch("/api/ai/split", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const res = await fetch("/api/ai/split", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
       setSplit(data.split as GeneratedSplit);
@@ -163,6 +175,55 @@ export function AISplitWizard() {
           ))}
         </div>
       </div>
+
+      <Card className="space-y-3">
+        <div>
+          <p className="text-sm font-medium">Optional — tailor it to you</p>
+          <p className="text-xs text-muted">The more you share, the smarter the split.</p>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <label className="block">
+            <span className="mb-1 block text-xs text-muted">Current wt</span>
+            <Input inputMode="decimal" value={currentWeight} onChange={(e) => setCurrentWeight(e.target.value)} placeholder="kg" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-muted">Goal wt</span>
+            <Input inputMode="decimal" value={goalWeight} onChange={(e) => setGoalWeight(e.target.value)} placeholder="kg" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-muted">Body fat</span>
+            <Input inputMode="decimal" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="%" />
+          </label>
+        </div>
+
+        <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={onPhoto} />
+        {photoPreview ? (
+          <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photoPreview} alt="" className="max-h-44 w-full rounded-xl object-contain" />
+            <button
+              onClick={() => {
+                setPhoto(null);
+                setPhotoPreview(null);
+                if (photoRef.current) photoRef.current.value = "";
+              }}
+              className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-1 text-xs text-white"
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => photoRef.current?.click()}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm text-muted active:bg-bg"
+          >
+            <CameraIcon className="h-5 w-5" /> Add a physique photo
+          </button>
+        )}
+        <p className="text-[11px] text-muted">
+          If you add a photo, the AI suggests which muscle groups to prioritize. Private — used only to generate this split.
+        </p>
+      </Card>
 
       {error && <p className="text-sm text-danger">{error}</p>}
 

@@ -49,8 +49,13 @@ export async function uploadPostPhoto(
 
   const file = formData.get("photo");
   if (!(file instanceof File) || file.size === 0) return { error: "No file" };
-  if (file.size > 8 * 1024 * 1024) return { error: "Image too large (max 8MB)" };
-  if (!file.type.startsWith("image/")) return { error: "Images only" };
+  const isVideo = file.type.startsWith("video/");
+  const isImage = file.type.startsWith("image/");
+  if (!isImage && !isVideo) return { error: "Images or videos only" };
+  const limit = isVideo ? 50 * 1024 * 1024 : 12 * 1024 * 1024;
+  if (file.size > limit) {
+    return { error: isVideo ? "Video too large (max 50MB)" : "Image too large (max 12MB)" };
+  }
 
   const ext = file.name.split(".").pop() ?? "jpg";
   const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
