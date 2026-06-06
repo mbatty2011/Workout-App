@@ -2,14 +2,15 @@ import { redirect } from "next/navigation";
 import { FEATURES } from "@/config/features";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/modules/auth/queries";
-import { PageHeader } from "@/components/ui";
 import { Logger } from "@/modules/workouts/components/Logger";
+import { StartScreen } from "@/modules/workouts/components/StartScreen";
 import { startWorkout } from "@/modules/workouts/actions";
 import {
   getActiveWorkout,
   getWorkoutSets,
   getPreviousSets,
 } from "@/modules/workouts/queries";
+import { listRoutines } from "@/modules/routines/queries";
 import { getExerciseMap } from "@/modules/exercises/queries";
 import type { ActiveExercise } from "@/modules/workouts/types";
 import type { Exercise, RoutineDay } from "@/lib/database.types";
@@ -22,16 +23,31 @@ export default async function WorkoutPage({
   if (!FEATURES.workoutLogging) redirect("/");
   const { routine, day } = await searchParams;
 
-  // Ensure exactly one active session exists.
   let active = await getActiveWorkout();
-  if (!active) {
+
+  // Only auto-start when the user explicitly picked a routine day (deep link
+  // from the splits screen). Otherwise show the start screen — visiting the tab
+  // must never silently create a session, so finishing one truly ends it.
+  if (!active && routine) {
     const res = await startWorkout(routine, day ? Number(day) : undefined);
     if (res.error || !res.id) {
       return <p className="text-danger">Could not start a workout: {res.error}</p>;
     }
     active = await getActiveWorkout();
   }
-  if (!active) redirect("/");
+
+  if (!active) {
+    const routines = await listRoutines();
+    return (
+      <StartScreen
+        routines={routines.map((r) => ({
+          id: r.id,
+          name: r.name,
+          days: r.days.map((d) => ({ name: d.name })),
+        }))}
+      />
+    );
+  }
 
   const profile = await getCurrentProfile();
   const unit = profile?.unit ?? "kg";

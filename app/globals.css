@@ -39,6 +39,15 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Hide scrollbars in the reels feed (snap scrolling stays). */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 @keyframes pr-pop {
   0% { transform: scale(0.6); opacity: 0; }
   50% { transform: scale(1.1); opacity: 1; }

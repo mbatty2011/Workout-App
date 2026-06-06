@@ -48,6 +48,26 @@ export async function getFeed(limit = 30): Promise<FeedPost[]> {
   return hydratePosts(posts, user.id);
 }
 
+/**
+ * "Explore" side of the reels feed: recent public posts from everyone.
+ * RLS guarantees only public-visible rows come back.
+ */
+export async function getExploreFeed(limit = 40): Promise<FeedPost[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: posts } = await supabase
+    .from("posts")
+    .select("*")
+    .eq("visibility", "public")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (!posts || posts.length === 0) return [];
+  return hydratePosts(posts, user?.id ?? "");
+}
+
 export async function getPost(id: string): Promise<FeedPost | null> {
   const supabase = await createClient();
   const {

@@ -1,41 +1,25 @@
 import { redirect } from "next/navigation";
 import { FEATURES } from "@/config/features";
-import {
-  getTodaysFoodLogs,
-  computeTotals,
-  MEALS,
-} from "@/modules/food/queries";
-import { getGoalsWithProgress } from "@/modules/goals/queries";
+import { getTodaysFoodLogs, MEALS } from "@/modules/food/queries";
+import { getMacroPlan } from "@/modules/goals/queries";
 import { FoodInput } from "@/modules/food/components/FoodInput";
 import { DeleteLogButton } from "@/modules/food/components/DeleteLogButton";
-import { Card, PageHeader, Stat } from "@/components/ui";
+import { MacroPlan } from "@/modules/goals/components/MacroPlan";
+import { Card, PageHeader } from "@/components/ui";
 
 export default async function FoodPage() {
   if (!FEATURES.foodTracker) redirect("/");
 
   const logs = await getTodaysFoodLogs();
-  const totals = computeTotals(logs);
-  const goals = FEATURES.weightGoals ? await getGoalsWithProgress() : [];
-  const calorieGoal = goals.find((g) => g.goal.type === "calorie");
-  const proteinGoal = goals.find((g) => g.goal.type === "protein");
+  const macroPlan = FEATURES.weightGoals
+    ? await getMacroPlan()
+    : { calories: null, protein: null, carbs: null, fat: null, hasPlan: false };
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Food" subtitle="Calories + protein, the two that matter." />
+      <PageHeader title="Food" subtitle="Track your diet against a plan." />
 
-      <div className="grid grid-cols-2 gap-2">
-        <Stat
-          label={calorieGoal ? `Calories / ${calorieGoal.target}` : "Calories"}
-          value={`${Math.round(totals.calories)}`}
-        />
-        <Stat
-          label={proteinGoal ? `Protein / ${proteinGoal.target}g` : "Protein"}
-          value={`${Math.round(totals.protein)}g`}
-        />
-      </div>
-      <p className="text-center text-xs text-muted">
-        Secondary: {Math.round(totals.carbs)}g carbs · {Math.round(totals.fat)}g fat
-      </p>
+      {FEATURES.weightGoals && <MacroPlan plan={macroPlan} />}
 
       <FoodInput />
 

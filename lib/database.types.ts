@@ -16,7 +16,13 @@ export type Json =
 export type Unit = "kg" | "lb";
 export type Visibility = "public" | "followers" | "private";
 export type Meal = "breakfast" | "lunch" | "dinner" | "snack";
-export type GoalType = "weight" | "calorie" | "protein" | "workouts_per_week";
+export type GoalType =
+  | "weight"
+  | "calorie"
+  | "protein"
+  | "carbs"
+  | "fat"
+  | "workouts_per_week";
 export type FollowStatus = "pending" | "accepted";
 export type FoodSource = "usda" | "off";
 

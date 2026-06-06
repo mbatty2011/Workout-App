@@ -117,6 +117,30 @@ export function CameraIcon(p: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function HeartIcon({ filled, ...p }: SVGProps<SVGSVGElement> & { filled?: boolean }) {
+  return (
+    <Svg fill={filled ? "currentColor" : "none"} {...p}>
+      <path d="M12 20s-7-4.35-9.2-8.4C1.4 9.1 2.3 5.8 5.3 5c1.9-.5 3.7.4 4.7 1.9C11 5.4 12.8 4.5 14.7 5c3 .8 3.9 4.1 2.5 6.6C19 15.65 12 20 12 20Z" />
+    </Svg>
+  );
+}
+
+export function CommentIcon(p: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...p}>
+      <path d="M21 11.5a8 8 0 0 1-11.6 7.1L4 20l1.4-5.4A8 8 0 1 1 21 11.5Z" />
+    </Svg>
+  );
+}
+
+export function CloseIcon(p: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...p}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Svg>
+  );
+}
+
 export function SearchIcon(p: SVGProps<SVGSVGElement>) {
   return (
     <Svg {...p}>

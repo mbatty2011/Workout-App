@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Goal, WeightLog } from "@/lib/database.types";
+import type { Goal, GoalType, WeightLog } from "@/lib/database.types";
 import { getWeekSummary } from "@/modules/progress/queries";
 import { getTodaysFoodLogs, computeTotals } from "@/modules/food/queries";
 
@@ -41,13 +41,48 @@ export async function getWeightLogs(limit = 60): Promise<WeightLog[]> {
   return data ?? [];
 }
 
+export interface MacroTarget {
+  target: number;
+  current: number;
+}
+export interface MacroPlan {
+  calories: MacroTarget | null;
+  protein: MacroTarget | null;
+  carbs: MacroTarget | null;
+  fat: MacroTarget | null;
+  hasPlan: boolean;
+}
+
+/** The day's macro plan: targets (from goals) + consumed (from today's logs). */
+export async function getMacroPlan(): Promise<MacroPlan> {
+  const goals = await listGoals();
+  const totals = computeTotals(await getTodaysFoodLogs());
+  const byType = new Map(goals.map((g) => [g.type, g.target]));
+
+  const pick = (type: GoalType, current: number): MacroTarget | null =>
+    byType.has(type) ? { target: byType.get(type)!, current: Math.round(current) } : null;
+
+  const calories = pick("calorie", totals.calories);
+  const protein = pick("protein", totals.protein);
+  const carbs = pick("carbs", totals.carbs);
+  const fat = pick("fat", totals.fat);
+  return {
+    calories,
+    protein,
+    carbs,
+    fat,
+    hasPlan: Boolean(calories || protein || carbs || fat),
+  };
+}
+
 /** Live progress for each goal from logged data (spec §5.9). */
 export async function getGoalsWithProgress(): Promise<GoalProgress[]> {
   const goals = await listGoals();
   if (goals.length === 0) return [];
 
   // Gather the inputs each goal type needs, lazily but at most once.
-  const needsFood = goals.some((g) => g.type === "calorie" || g.type === "protein");
+  const macroTypes = new Set(["calorie", "protein", "carbs", "fat"]);
+  const needsFood = goals.some((g) => macroTypes.has(g.type));
   const needsWeek = goals.some((g) => g.type === "workouts_per_week");
   const needsWeight = goals.some((g) => g.type === "weight");
 
@@ -67,6 +102,14 @@ export async function getGoalsWithProgress(): Promise<GoalProgress[]> {
       case "protein":
         current = Math.round(totals?.protein ?? 0);
         unitLabel = "g protein today";
+        break;
+      case "carbs":
+        current = Math.round(totals?.carbs ?? 0);
+        unitLabel = "g carbs today";
+        break;
+      case "fat":
+        current = Math.round(totals?.fat ?? 0);
+        unitLabel = "g fat today";
         break;
       case "workouts_per_week":
         current = week?.workouts ?? 0;
