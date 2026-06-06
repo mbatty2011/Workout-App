@@ -66,6 +66,73 @@ export async function finishWorkout(
   return { prs };
 }
 
+/**
+ * Post-finish wrap-up: attach a note + photo to the workout, and optionally
+ * share it to the feed as a post.
+ */
+export async function saveWorkoutWrapup(
+  workoutId: string,
+  input: {
+    note: string;
+    photoUrl: string | null;
+    share: boolean;
+    visibility: "public" | "followers" | "private";
+  },
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const { error } = await supabase
+    .from("workouts")
+    .update({ note: input.note.trim() || null, photo_url: input.photoUrl })
+    .eq("id", workoutId)
+    .eq("owner_id", user.id);
+  if (error) return { error: error.message };
+
+  if (input.share) {
+    await supabase.from("posts").insert({
+      owner_id: user.id,
+      workout_id: workoutId,
+      caption: input.note.trim() || null,
+      photo_url: input.photoUrl,
+      visibility: input.visibility,
+    });
+    revalidatePath("/feed");
+  }
+
+  revalidatePath("/");
+  revalidatePath(`/workout/${workoutId}`);
+  return {};
+}
+
+/** Upload a workout photo to Storage; returns a public URL. */
+export async function uploadWorkoutPhoto(
+  formData: FormData,
+): Promise<{ url?: string; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) return { error: "No file" };
+  if (file.size > 10 * 1024 * 1024) return { error: "Image too large (max 10MB)" };
+  if (!file.type.startsWith("image/")) return { error: "Images only" };
+
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage
+    .from("post-photos")
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (error) return { error: error.message };
+  const { data } = supabase.storage.from("post-photos").getPublicUrl(path);
+  return { url: data.publicUrl };
+}
+
 export async function discardWorkout(workoutId: string) {
   const supabase = await createClient();
   await supabase.from("workouts").delete().eq("id", workoutId);

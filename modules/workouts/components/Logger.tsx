@@ -10,6 +10,7 @@ import type { Exercise, WorkoutSet } from "@/lib/database.types";
 import type { ActiveExercise, PreviousSet } from "@/modules/workouts/types";
 import { ExercisePicker } from "@/modules/exercises/components/ExercisePicker";
 import { RestTimer } from "@/modules/workouts/components/RestTimer";
+import { WorkoutWrapup } from "@/modules/workouts/components/WorkoutWrapup";
 import { finishWorkout, discardWorkout } from "@/modules/workouts/actions";
 
 /**
@@ -37,7 +38,7 @@ export function Logger({
   const [picking, setPicking] = useState(false);
   const [restTick, setRestTick] = useState(0);
   const [finishing, setFinishing] = useState(false);
-  const [prs, setPrs] = useState<string[] | null>(null);
+  const [wrapup, setWrapup] = useState<{ prs: string[]; durationSecs: number } | null>(null);
 
   const totalSets = exercises.reduce((n, e) => n + e.sets.length, 0);
   const doneCount = done.size;
@@ -148,13 +149,22 @@ export function Logger({
 
   async function handleFinish() {
     setFinishing(true);
+    const durationSecs = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
     const res = await finishWorkout(workoutId);
     setFinishing(false);
-    if (res.prs && res.prs.length > 0) setPrs(res.prs);
-    else router.push("/");
+    setWrapup({ prs: res.prs ?? [], durationSecs });
   }
 
-  if (prs) return <PRCelebration prs={prs} onDone={() => router.push("/")} />;
+  if (wrapup) {
+    return (
+      <WorkoutWrapup
+        workoutId={workoutId}
+        prs={wrapup.prs}
+        stats={{ durationSecs: wrapup.durationSecs, sets: totalSets, volume: totalVolume, unit }}
+        onDone={() => router.push("/")}
+      />
+    );
+  }
 
   if (picking) {
     return (
@@ -395,20 +405,5 @@ function NumberInput({
       }}
       className="tabular h-9 w-full rounded-lg border border-transparent bg-bg text-center text-[15px] outline-none placeholder:text-muted/50 focus:border-accent"
     />
-  );
-}
-
-function PRCelebration({ prs, onDone }: { prs: string[]; onDone: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-      <div className="animate-pr text-6xl">🏆</div>
-      <h2 className="text-2xl font-semibold">New PR{prs.length > 1 ? "s" : ""}</h2>
-      <ul className="space-y-1 text-accent">
-        {prs.map((p) => (
-          <li key={p}>{p}</li>
-        ))}
-      </ul>
-      <Button size="lg" onClick={onDone}>Done</Button>
-    </div>
   );
 }

@@ -119,6 +119,7 @@ export interface Database {
           started_at: string;
           ended_at: string | null;
           note: string | null;
+          photo_url: string | null;
         };
         Insert: {
           id?: string;
@@ -128,6 +129,7 @@ export interface Database {
           started_at?: string;
           ended_at?: string | null;
           note?: string | null;
+          photo_url?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["workouts"]["Insert"]>;
         Relationships: [

@@ -45,19 +45,19 @@ export function ReelsFeed({
   ];
 
   return (
-    <div className="relative -mx-4 -mb-6 -mt-6 h-[calc(100dvh-3.5rem)] overflow-hidden bg-black">
+    <div className="relative -mx-4 -mb-6 -mt-6 h-[calc(100svh-3.75rem)] overflow-hidden bg-black">
       {/* Top overlay: feed switch + post */}
       <div
-        className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-4 pb-3"
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-4 pb-3"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
       >
-        <div className="flex gap-4">
+        <div className="pointer-events-auto flex gap-4">
           {panels.map((p, i) => (
             <button
               key={p.label}
               onClick={() => goTab(i)}
               className={cn(
-                "text-sm font-semibold transition-opacity",
+                "text-sm font-semibold drop-shadow transition-opacity",
                 tab === i ? "text-white" : "text-white/50",
               )}
             >
@@ -65,7 +65,7 @@ export function ReelsFeed({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3 text-white">
+        <div className="pointer-events-auto flex items-center gap-3 text-white drop-shadow">
           <Link href="/feed/people" aria-label="Find people">
             <FeedIcon className="h-6 w-6" />
           </Link>
@@ -80,12 +80,17 @@ export function ReelsFeed({
         ref={outerRef}
         onScroll={onScroll}
         className="flex h-full w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden no-scrollbar"
+        style={{ overscrollBehavior: "contain" }}
       >
         {panels.map((panel) => (
           <div
             key={panel.label}
             className="h-full w-full shrink-0 snap-start snap-always overflow-y-auto overflow-x-hidden no-scrollbar"
-            style={{ scrollSnapType: "y mandatory" }}
+            style={{
+              scrollSnapType: "y mandatory",
+              overscrollBehavior: "contain",
+              WebkitOverflowScrolling: "touch",
+            }}
           >
             {panel.posts.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center text-white/70">

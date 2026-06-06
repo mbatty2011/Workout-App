@@ -56,6 +56,11 @@ export default async function WorkoutDetailPage({
         }
       />
 
+      {workout.photo_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={workout.photo_url} alt="" className="aspect-square w-full rounded-2xl object-cover" />
+      )}
+
       {workout.note && <Card className="text-sm text-muted">{workout.note}</Card>}
 
       {order.map((exId) => {
