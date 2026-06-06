@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Button, Card } from "@/components/ui";
-import { estimate1RM } from "@/lib/utils";
+import { Button } from "@/components/ui";
+import { CheckIcon, PlusIcon } from "@/components/icons";
+import { cn, estimate1RM, setVolume } from "@/lib/utils";
 import type { Exercise, WorkoutSet } from "@/lib/database.types";
 import type { ActiveExercise, PreviousSet } from "@/modules/workouts/types";
 import { ExercisePicker } from "@/modules/exercises/components/ExercisePicker";
@@ -13,17 +14,18 @@ import { finishWorkout, discardWorkout } from "@/modules/workouts/actions";
 
 /**
  * Optimistic, offline-tolerant set logger. Every entry mutates local state
- * immediately and writes through to Supabase in the background — the keyboard
- * never waits on the network (spec §5.3). Set ids are generated client-side so
- * there is no temp-id reconciliation.
+ * immediately and writes through to Supabase in the background. Set ids are
+ * generated client-side so there is no temp-id reconciliation.
  */
 export function Logger({
   workoutId,
+  startedAt,
   initialExercises,
   unit,
   exerciseLibrary,
 }: {
   workoutId: string;
+  startedAt: string;
   initialExercises: ActiveExercise[];
   unit: string;
   exerciseLibrary: Exercise[];
@@ -31,10 +33,18 @@ export function Logger({
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [exercises, setExercises] = useState<ActiveExercise[]>(initialExercises);
+  const [done, setDone] = useState<Set<string>>(new Set());
   const [picking, setPicking] = useState(false);
   const [restTick, setRestTick] = useState(0);
   const [finishing, setFinishing] = useState(false);
   const [prs, setPrs] = useState<string[] | null>(null);
+
+  const totalSets = exercises.reduce((n, e) => n + e.sets.length, 0);
+  const doneCount = done.size;
+  const totalVolume = exercises.reduce(
+    (v, e) => v + e.sets.reduce((s, x) => s + (x.is_warmup ? 0 : setVolume(x.weight, x.reps)), 0),
+    0,
+  );
 
   function addExercise(exercise: Exercise, previous: PreviousSet[] = []) {
     setExercises((prev) =>
@@ -46,7 +56,6 @@ export function Logger({
 
   async function handlePick(exercise: Exercise) {
     setPicking(false);
-    // Pull last-time numbers for this exercise so the first set pre-fills.
     const { data } = await supabase
       .from("workout_sets")
       .select("set_index, reps, weight, is_warmup, workouts!inner(owner_id, ended_at, started_at)")
@@ -64,7 +73,7 @@ export function Logger({
     addExercise(exercise, previous);
   }
 
-  async function addSet(exerciseId: string) {
+  function addSet(exerciseId: string) {
     const target = exercises.find((e) => e.exercise.id === exerciseId);
     if (!target) return;
     const lastSet = target.sets[target.sets.length - 1];
@@ -81,13 +90,11 @@ export function Logger({
       is_warmup: false,
       created_at: new Date().toISOString(),
     };
-    // Optimistic: render now.
     setExercises((prev) =>
       prev.map((e) =>
         e.exercise.id === exerciseId ? { ...e, sets: [...e.sets, newSet] } : e,
       ),
     );
-    // Write-through in the background; UI does not await.
     void supabase.from("workout_sets").insert({
       id: newSet.id,
       workout_id: workoutId,
@@ -113,159 +120,251 @@ export function Logger({
     setExercises((prev) =>
       prev.map((e) => ({ ...e, sets: e.sets.filter((s) => s.id !== setId) })),
     );
+    setDone((prev) => {
+      const next = new Set(prev);
+      next.delete(setId);
+      return next;
+    });
     void supabase.from("workout_sets").delete().eq("id", setId);
+  }
+
+  function toggleDone(set: WorkoutSet, placeholder: PreviousSet | undefined) {
+    setDone((prev) => {
+      const next = new Set(prev);
+      if (next.has(set.id)) {
+        next.delete(set.id);
+        return next;
+      }
+      next.add(set.id);
+      // Fill any blanks from "last time" on completion, then start rest.
+      const patch: Partial<WorkoutSet> = {};
+      if (set.weight == null && placeholder?.weight != null) patch.weight = placeholder.weight;
+      if (set.reps == null && placeholder?.reps != null) patch.reps = placeholder.reps;
+      if (Object.keys(patch).length) patchSet(set.id, patch);
+      setRestTick((t) => t + 1);
+      return next;
+    });
   }
 
   async function handleFinish() {
     setFinishing(true);
     const res = await finishWorkout(workoutId);
     setFinishing(false);
-    if (res.prs && res.prs.length > 0) {
-      setPrs(res.prs);
-    } else {
-      router.push("/");
-    }
+    if (res.prs && res.prs.length > 0) setPrs(res.prs);
+    else router.push("/");
   }
 
-  if (prs) {
-    return <PRCelebration prs={prs} onDone={() => router.push("/")} />;
-  }
+  if (prs) return <PRCelebration prs={prs} onDone={() => router.push("/")} />;
 
   if (picking) {
     return (
-      <ExercisePicker
-        initial={exerciseLibrary}
-        onPick={handlePick}
-        onClose={() => setPicking(false)}
-      />
+      <div className="min-h-[80vh]">
+        <ExercisePicker initial={exerciseLibrary} onPick={handlePick} onClose={() => setPicking(false)} />
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-4 pb-2">
+      {/* Session header: live duration + at-a-glance volume */}
+      <header className="flex items-end justify-between">
+        <div>
+          <Elapsed startedAt={startedAt} />
+          <p className="mt-0.5 text-xs text-muted">
+            {doneCount}/{totalSets || 0} sets · {Math.round(totalVolume).toLocaleString()} {unit}
+          </p>
+        </div>
+        <Button size="sm" disabled={finishing} onClick={handleFinish}>
+          {finishing ? "Finishing…" : "Finish"}
+        </Button>
+      </header>
+
       <RestTimer autoStartKey={restTick} />
 
+      {exercises.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+          <p className="font-medium">Empty session</p>
+          <p className="mt-1 text-sm text-muted">Add your first exercise to start logging.</p>
+        </div>
+      )}
+
       {exercises.map((ae) => (
-        <Card key={ae.exercise.id} className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium">{ae.exercise.name}</h3>
-            <span className="text-xs text-muted">{ae.exercise.muscle_group}</span>
+        <section key={ae.exercise.id} className="rounded-2xl border border-border bg-surface">
+          <div className="flex items-center justify-between px-4 pt-3.5">
+            <div>
+              <h3 className="font-semibold leading-tight">{ae.exercise.name}</h3>
+              <p className="text-xs uppercase tracking-wide text-muted">{ae.exercise.muscle_group}</p>
+            </div>
+            <span className="text-xs text-muted">{ae.sets.length} sets</span>
           </div>
 
-          {/* Column headers */}
-          <div className="grid grid-cols-[2rem_1fr_1fr_2.5rem_2rem] items-center gap-2 px-1 text-[11px] text-muted">
-            <span>Set</span>
-            <span>{unit}</span>
-            <span>Reps</span>
-            <span>RPE</span>
+          <div className="mt-2 grid grid-cols-[2.2rem_1fr_1fr_1fr_2.4rem] items-center gap-2 px-4 text-[10px] font-medium uppercase tracking-wide text-muted">
+            <span className="text-center">Set</span>
+            <span className="text-center">Last</span>
+            <span className="text-center">{unit}</span>
+            <span className="text-center">Reps</span>
             <span />
           </div>
 
-          {ae.sets.map((s, i) => {
-            const prev = ae.previous[i];
-            return (
+          <div className="px-2 pb-2">
+            {ae.sets.map((s, i) => (
               <SetRow
                 key={s.id}
                 set={s}
-                placeholderWeight={prev?.weight ?? null}
-                placeholderReps={prev?.reps ?? null}
-                onChange={(patch) => patchSet(s.id, patch)}
-                onLogged={() => setRestTick((t) => t + 1)}
+                index={i}
+                previous={ae.previous[i]}
+                unit={unit}
+                done={done.has(s.id)}
+                onPatch={(patch) => patchSet(s.id, patch)}
+                onToggleWarmup={() => patchSet(s.id, { is_warmup: !s.is_warmup })}
+                onToggleDone={() => toggleDone(s, ae.previous[i])}
                 onRemove={() => removeSet(s.id)}
               />
-            );
-          })}
+            ))}
+          </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
+          <button
             onClick={() => addSet(ae.exercise.id)}
+            className="flex w-full items-center justify-center gap-1.5 border-t border-border py-2.5 text-sm text-muted active:bg-bg/40"
           >
-            + Add set
-          </Button>
-        </Card>
+            <PlusIcon className="h-4 w-4" /> Add set
+          </button>
+        </section>
       ))}
 
-      <Button variant="outline" className="w-full" onClick={() => setPicking(true)}>
-        + Add exercise
-      </Button>
+      <button
+        onClick={() => setPicking(true)}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border py-3.5 font-medium active:scale-[0.99]"
+      >
+        <PlusIcon className="h-5 w-5" /> Add exercise
+      </button>
 
-      <div className="flex gap-2">
-        <Button className="flex-1" size="lg" disabled={finishing} onClick={handleFinish}>
-          {finishing ? "Finishing…" : "Finish workout"}
-        </Button>
-        <Button
-          variant="danger"
-          size="lg"
-          onClick={() => {
-            if (confirm("Discard this workout?")) void discardWorkout(workoutId);
-          }}
-        >
-          Discard
-        </Button>
-      </div>
+      <button
+        onClick={() => {
+          if (confirm("Discard this workout? This can't be undone.")) void discardWorkout(workoutId);
+        }}
+        className="w-full py-2 text-center text-sm text-danger/80 active:text-danger"
+      >
+        Discard workout
+      </button>
     </div>
+  );
+}
+
+function Elapsed({ startedAt }: { startedAt: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const secs = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000));
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <h1 className="tabular text-3xl font-semibold tracking-tight">
+      {h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`}
+    </h1>
   );
 }
 
 function SetRow({
   set,
-  placeholderWeight,
-  placeholderReps,
-  onChange,
-  onLogged,
+  index,
+  previous,
+  unit,
+  done,
+  onPatch,
+  onToggleWarmup,
+  onToggleDone,
   onRemove,
 }: {
   set: WorkoutSet;
-  placeholderWeight: number | null;
-  placeholderReps: number | null;
-  onChange: (patch: Partial<WorkoutSet>) => void;
-  onLogged: () => void;
+  index: number;
+  previous: PreviousSet | undefined;
+  unit: string;
+  done: boolean;
+  onPatch: (patch: Partial<WorkoutSet>) => void;
+  onToggleWarmup: () => void;
+  onToggleDone: () => void;
   onRemove: () => void;
 }) {
+  const prevLabel =
+    previous && previous.weight != null && previous.reps != null
+      ? `${previous.weight}×${previous.reps}`
+      : "–";
   const e1rm = estimate1RM(set.weight, set.reps);
+
   return (
-    <div className="grid grid-cols-[2rem_1fr_1fr_2.5rem_2rem] items-center gap-2">
+    <div
+      className={cn(
+        "group grid grid-cols-[2.2rem_1fr_1fr_1fr_2.4rem] items-center gap-2 rounded-xl px-2 py-1.5 transition-colors",
+        done && "bg-accent/[0.07]",
+      )}
+    >
       <button
-        onClick={() => onChange({ is_warmup: !set.is_warmup })}
-        className={
-          "h-9 rounded-lg text-xs " +
-          (set.is_warmup ? "bg-accent/15 text-accent" : "bg-surface text-muted")
-        }
-        title="Toggle warm-up"
+        onClick={onToggleWarmup}
+        className={cn(
+          "tabular h-9 rounded-lg text-sm font-medium",
+          set.is_warmup ? "text-accent" : "text-muted",
+        )}
+        title="Tap to toggle warm-up"
       >
-        {set.is_warmup ? "W" : set.set_index}
+        {set.is_warmup ? "W" : index + 1}
       </button>
+
+      <button
+        onClick={() => {
+          const patch: Partial<WorkoutSet> = {};
+          if (previous?.weight != null) patch.weight = previous.weight;
+          if (previous?.reps != null) patch.reps = previous.reps;
+          if (Object.keys(patch).length) onPatch(patch);
+        }}
+        className="tabular truncate text-center text-sm text-muted active:text-text"
+        title="Tap to use last time"
+      >
+        {prevLabel}
+      </button>
+
       <NumberInput
         value={set.weight}
-        placeholder={placeholderWeight}
-        onCommit={(v) => {
-          onChange({ weight: v });
-          if (v != null) onLogged();
-        }}
+        placeholder={previous?.weight ?? null}
+        onCommit={(v) => onPatch({ weight: v })}
       />
       <NumberInput
         value={set.reps}
-        placeholder={placeholderReps}
-        onCommit={(v) => {
-          onChange({ reps: v });
-          if (v != null) onLogged();
-        }}
+        placeholder={previous?.reps ?? null}
+        onCommit={(v) => onPatch({ reps: v })}
       />
-      <NumberInput
-        value={set.rpe}
-        placeholder={null}
-        step="0.5"
-        onCommit={(v) => onChange({ rpe: v })}
-      />
-      <button onClick={onRemove} className="text-muted active:scale-90" aria-label="Remove set">
-        ✕
-      </button>
-      {e1rm && (
-        <span className="col-span-5 px-1 text-[10px] text-muted">
-          est. 1RM {e1rm}
+
+      <div className="flex items-center justify-end">
+        <button
+          onClick={onToggleDone}
+          className={cn(
+            "grid h-9 w-9 place-items-center rounded-lg border transition-colors",
+            done
+              ? "border-accent bg-accent text-accent-text"
+              : "border-border text-muted active:bg-bg",
+          )}
+          aria-label="Complete set"
+        >
+          <CheckIcon className="h-4 w-4" />
+        </button>
+      </div>
+
+      {e1rm && !set.is_warmup && (
+        <span className="col-span-5 px-2 text-[10px] text-muted">
+          est. 1RM {e1rm}{unit}
+          <button onClick={onRemove} className="float-right text-muted/70 active:text-danger">
+            remove
+          </button>
         </span>
+      )}
+      {(!e1rm || set.is_warmup) && (
+        <button onClick={onRemove} className="col-span-5 px-2 text-right text-[10px] text-muted/70 active:text-danger">
+          remove
+        </button>
       )}
     </div>
   );
@@ -274,44 +373,42 @@ function SetRow({
 function NumberInput({
   value,
   placeholder,
-  step = "0.5",
   onCommit,
 }: {
   value: number | null;
   placeholder: number | null;
-  step?: string;
   onCommit: (v: number | null) => void;
 }) {
   const [local, setLocal] = useState<string>(value == null ? "" : String(value));
+  useEffect(() => {
+    setLocal(value == null ? "" : String(value));
+  }, [value]);
   return (
     <input
       inputMode="decimal"
-      step={step}
       value={local}
-      placeholder={placeholder == null ? "" : String(placeholder)}
+      placeholder={placeholder == null ? "—" : String(placeholder)}
       onChange={(e) => setLocal(e.target.value)}
       onBlur={() => {
         const n = local === "" ? null : Number(local);
         onCommit(Number.isNaN(n as number) ? null : n);
       }}
-      className="tabular h-9 w-full rounded-lg border border-border bg-bg px-2 text-center outline-none focus:border-accent"
+      className="tabular h-9 w-full rounded-lg border border-transparent bg-bg text-center text-[15px] outline-none placeholder:text-muted/50 focus:border-accent"
     />
   );
 }
 
 function PRCelebration({ prs, onDone }: { prs: string[]; onDone: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+    <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
       <div className="animate-pr text-6xl">🏆</div>
-      <h2 className="text-xl font-semibold">New PR{prs.length > 1 ? "s" : ""}!</h2>
+      <h2 className="text-2xl font-semibold">New PR{prs.length > 1 ? "s" : ""}</h2>
       <ul className="space-y-1 text-accent">
         {prs.map((p) => (
           <li key={p}>{p}</li>
         ))}
       </ul>
-      <Button size="lg" onClick={onDone}>
-        Nice. Done
-      </Button>
+      <Button size="lg" onClick={onDone}>Done</Button>
     </div>
   );
 }

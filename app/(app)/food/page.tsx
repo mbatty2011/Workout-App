@@ -6,7 +6,7 @@ import {
   MEALS,
 } from "@/modules/food/queries";
 import { getGoalsWithProgress } from "@/modules/goals/queries";
-import { FoodSearch } from "@/modules/food/components/FoodSearch";
+import { FoodInput } from "@/modules/food/components/FoodInput";
 import { DeleteLogButton } from "@/modules/food/components/DeleteLogButton";
 import { Card, PageHeader, Stat } from "@/components/ui";
 
@@ -37,9 +37,7 @@ export default async function FoodPage() {
         Secondary: {Math.round(totals.carbs)}g carbs · {Math.round(totals.fat)}g fat
       </p>
 
-      <Card>
-        <FoodSearch />
-      </Card>
+      <FoodInput />
 
       {MEALS.map((meal) => {
         const mealLogs = logs.filter((l) => l.meal === meal);

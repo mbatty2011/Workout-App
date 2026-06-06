@@ -86,9 +86,9 @@ export default async function WorkoutPage({
 
   return (
     <div>
-      <PageHeader title="Log" subtitle="Optimistic — entry never waits on the network." />
       <Logger
         workoutId={active.id}
+        startedAt={active.started_at}
         initialExercises={initialExercises}
         unit={unit}
         exerciseLibrary={library ?? []}
