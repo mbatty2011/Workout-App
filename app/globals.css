@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Theme tokens. Retheme by editing these values (kept in sync with the intent
+ * documented in config/brand.ts). Mobile-first, dark surface — the primary
+ * surface is a phone at the gym (spec §2).
+ */
+:root {
+  --color-bg: #0b0b0f;
+  --color-surface: #16161d;
+  --color-border: #26262f;
+  --color-text: #f4f4f5;
+  --color-muted: #9b9ba6;
+  --color-accent: #e7ff52;
+  --color-accent-text: #0b0b0f;
+  --color-danger: #ff5a5a;
+  --color-success: #4ade80;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body {
+  /* Respect device safe areas (notches, home indicator) on installed PWA. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Numbers in the logger should be tabular so they don't jump as you type. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes pr-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pr {
+  animation: pr-pop 0.5s ease-out;
+}
