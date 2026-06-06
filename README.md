@@ -9,6 +9,9 @@ helper grounded in what people actually use.
 Stack: **Next.js (App Router, TS) · Supabase (Postgres + Auth + Storage, RLS) ·
 Tailwind · Anthropic API (server-side)**.
 
+> **On your phone / want a public URL?** Follow [`DEPLOY.md`](./DEPLOY.md) to
+> deploy to Vercel + Supabase entirely from a mobile browser (~10 min).
+
 ---
 
 ## Quickstart (run it locally)
