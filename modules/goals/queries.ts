@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Goal, GoalType, WeightLog } from "@/lib/database.types";
 import { getWeekSummary } from "@/modules/progress/queries";
-import { getTodaysFoodLogs, computeTotals } from "@/modules/food/queries";
+import { getTodaysFoodLogs, getFoodLogsForDay, computeTotals } from "@/modules/food/queries";
 
 export interface GoalProgress {
   goal: Goal;
@@ -53,10 +53,10 @@ export interface MacroPlan {
   hasPlan: boolean;
 }
 
-/** The day's macro plan: targets (from goals) + consumed (from today's logs). */
-export async function getMacroPlan(): Promise<MacroPlan> {
+/** Macro plan: targets (from goals) + consumed for a given day's logs. */
+export async function getMacroPlanForDay(dateStr: string): Promise<MacroPlan> {
   const goals = await listGoals();
-  const totals = computeTotals(await getTodaysFoodLogs());
+  const totals = computeTotals(await getFoodLogsForDay(dateStr));
   const byType = new Map(goals.map((g) => [g.type, g.target]));
 
   const pick = (type: GoalType, current: number): MacroTarget | null =>

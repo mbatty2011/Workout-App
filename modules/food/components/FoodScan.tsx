@@ -1,11 +1,9 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { CameraIcon } from "@/components/icons";
 import type { Meal } from "@/lib/database.types";
-import { MEALS } from "@/modules/food/constants";
 import { logScannedFood } from "@/modules/food/actions";
 
 interface Scanned {
@@ -20,11 +18,18 @@ interface Scanned {
 }
 
 /**
- * Snap the nutrition label → Claude reads the macros → we check it against the
- * day's remaining plan and let the user log it.
+ * Snap the nutrition label → Claude reads the macros → log it as an ingredient
+ * of the given meal on the given day.
  */
-export function FoodScan() {
-  const router = useRouter();
+export function FoodScan({
+  meal,
+  dateStr,
+  onLogged,
+}: {
+  meal: Meal;
+  dateStr: string;
+  onLogged: () => void;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,9 +69,11 @@ export function FoodScan() {
       <ScanResult
         result={result}
         preview={preview}
+        meal={meal}
+        dateStr={dateStr}
         onLogged={() => {
           reset();
-          router.refresh();
+          onLogged();
         }}
         onRetake={reset}
       />
@@ -74,7 +81,7 @@ export function FoodScan() {
   }
 
   return (
-    <Card className="space-y-3">
+    <div className="space-y-2">
       <input
         ref={inputRef}
         type="file"
@@ -86,59 +93,56 @@ export function FoodScan() {
       {preview && loading ? (
         <div className="space-y-3 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt="" className="mx-auto max-h-56 rounded-xl object-contain opacity-70" />
+          <img src={preview} alt="" className="mx-auto max-h-48 rounded-xl object-contain opacity-70" />
           <p className="text-sm text-muted">Reading the label…</p>
         </div>
       ) : (
         <button
           onClick={() => inputRef.current?.click()}
-          className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-border py-8 text-muted active:bg-bg/40"
+          className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-border py-7 text-muted active:bg-bg/40"
         >
-          <CameraIcon className="h-7 w-7" />
-          <span className="text-sm font-medium text-text">Snap a nutrition label</span>
-          <span className="text-xs">Claude reads the macros and checks your plan</span>
+          <CameraIcon className="h-6 w-6" />
+          <span className="text-sm font-medium text-text">Scan a nutrition label</span>
         </button>
       )}
       {error && <p className="text-sm text-danger">{error}</p>}
-    </Card>
+    </div>
   );
 }
 
 function ScanResult({
   result,
   preview,
+  meal,
+  dateStr,
   onLogged,
   onRetake,
 }: {
   result: Scanned;
   preview: string | null;
+  meal: Meal;
+  dateStr: string;
   onLogged: () => void;
   onRetake: () => void;
 }) {
   const [servings, setServings] = useState("1");
-  const [meal, setMeal] = useState<Meal>("snack");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const s = Number(servings) || 0;
 
-  const confColor =
-    result.confidence === "high"
-      ? "text-success"
-      : result.confidence === "medium"
-        ? "text-accent"
-        : "text-muted";
-
   return (
-    <Card className="space-y-3">
+    <div className="space-y-3">
+      {/* Confidence — loud when we're unsure (spec feedback #3) */}
+      <ConfidenceBanner level={result.confidence} />
+
       <div className="flex items-start gap-3">
         {preview && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="" className="h-16 w-16 rounded-lg object-cover" />
+          <img src={preview} alt="" className="h-14 w-14 rounded-lg object-cover" />
         )}
         <div className="min-w-0 flex-1">
           <p className="font-medium leading-tight">{result.name}</p>
           <p className="text-xs text-muted">{result.serving}</p>
-          <p className={`text-[11px] ${confColor}`}>{result.confidence} confidence</p>
         </div>
       </div>
 
@@ -150,9 +154,9 @@ function ScanResult({
       </div>
 
       {result.verdict && (
-        <div className="rounded-xl border border-accent/30 bg-accent/[0.06] p-3 text-sm">
+        <p className="rounded-xl border border-accent/30 bg-accent/[0.06] p-2.5 text-sm">
           {result.verdict}
-        </div>
+        </p>
       )}
 
       <div className="flex items-center gap-2">
@@ -166,21 +170,6 @@ function ScanResult({
         <span className="text-xs text-muted">
           = {Math.round((result.calories ?? 0) * s)} kcal · {Math.round((result.protein_g ?? 0) * s)}g protein
         </span>
-      </div>
-
-      <div className="grid grid-cols-4 gap-1">
-        {MEALS.map((m) => (
-          <button
-            key={m}
-            onClick={() => setMeal(m)}
-            className={
-              "rounded-lg py-2 text-xs capitalize " +
-              (meal === m ? "bg-accent/15 text-accent" : "border border-border text-muted")
-            }
-          >
-            {m}
-          </button>
-        ))}
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}
@@ -202,31 +191,47 @@ function ScanResult({
                 },
                 meal,
                 s,
+                dateStr,
               );
               if (res.error) setError(res.error);
               else onLogged();
             })
           }
         >
-          Log it
+          Add to meal
         </Button>
         <Button variant="ghost" onClick={onRetake}>
           Retake
         </Button>
       </div>
-    </Card>
+    </div>
   );
 }
 
-function Macro({
-  label,
-  value,
-  suffix = "",
-}: {
-  label: string;
-  value: number | null;
-  suffix?: string;
-}) {
+function ConfidenceBanner({ level }: { level: "high" | "medium" | "low" }) {
+  if (level === "high") {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+        <span>✓</span> High confidence — these macros look reliable.
+      </div>
+    );
+  }
+  if (level === "medium") {
+    return (
+      <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-300">
+        <strong>⚠️ Medium confidence.</strong> Give these a quick check against the label.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-danger/50 bg-danger/15 px-3 py-2.5 text-sm text-danger">
+      <strong>⚠️ Low confidence — we&apos;re not sure these macros are right.</strong> The
+      label was hard to read. Double-check the numbers before adding.
+    </div>
+  );
+}
+
+function Macro({ label, value, suffix = "" }: { label: string; value: number | null; suffix?: string }) {
   return (
     <div className="rounded-lg border border-border bg-bg py-2">
       <p className="tabular text-base font-semibold">

@@ -1,52 +1,60 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Food, FoodLog, Meal } from "@/lib/database.types";
+import {
+  MEALS,
+  sumLogs,
+  type DayTotals,
+  type FoodLogWithFood,
+} from "@/modules/food/constants";
 
-export interface FoodLogWithFood extends FoodLog {
-  food: Food | null;
-}
+export type { FoodLogWithFood, DayTotals } from "@/modules/food/constants";
+export { MEALS } from "@/modules/food/constants";
 
-export interface DayTotals {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-}
-
-/** Today's food logs (local day), joined with their food rows. */
-export async function getTodaysFoodLogs(): Promise<FoodLogWithFood[]> {
+/** Logs for a specific local day (YYYY-MM-DD), joined with their food rows. */
+export async function getFoodLogsForDay(dateStr: string): Promise<FoodLogWithFood[]> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
+  const start = new Date(`${dateStr}T00:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
 
   const { data } = await supabase
     .from("food_logs")
     .select("*, food:foods(*)")
     .eq("owner_id", user.id)
     .gte("logged_at", start.toISOString())
+    .lt("logged_at", end.toISOString())
     .order("logged_at");
   return (data ?? []) as unknown as FoodLogWithFood[];
 }
 
-/** Calories + protein are primary; carbs/fat secondary (spec §5.8). */
-export function computeTotals(logs: FoodLogWithFood[]): DayTotals {
-  return logs.reduce<DayTotals>(
-    (acc, log) => {
-      const f = log.food;
-      if (!f) return acc;
-      const s = log.servings;
-      acc.calories += (f.calories ?? 0) * s;
-      acc.protein += (f.protein_g ?? 0) * s;
-      acc.carbs += (f.carbs_g ?? 0) * s;
-      acc.fat += (f.fat_g ?? 0) * s;
-      return acc;
-    },
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
-  );
+/** Today's food logs (local day). */
+export async function getTodaysFoodLogs(): Promise<FoodLogWithFood[]> {
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return getFoodLogsForDay(dateStr);
 }
 
-export { MEALS } from "@/modules/food/constants";
+/** Calories + protein primary; carbs/fat secondary (spec §5.8). */
+export const computeTotals = sumLogs;
+
+/** Distinct days the user has logged food, most recent first (for the calendar). */
+export async function getLoggedDays(limit = 60): Promise<string[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data } = await supabase
+    .from("food_logs")
+    .select("logged_at")
+    .eq("owner_id", user.id)
+    .order("logged_at", { ascending: false })
+    .limit(400);
+  const days = new Set<string>();
+  for (const row of data ?? []) days.add(row.logged_at.slice(0, 10));
+  return Array.from(days).slice(0, limit);
+}
