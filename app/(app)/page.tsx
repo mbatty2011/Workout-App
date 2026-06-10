@@ -69,6 +69,10 @@ export default async function HomePage() {
   const today = dayKey();
   const trainedToday = recent.some((w) => dayKey(new Date(w.started_at)) === today);
   const latestRoutine = routines[0];
+  const daysSinceLast = recent[0]
+    ? Math.floor((Date.now() - new Date(recent[0].started_at).getTime()) / 86400000)
+    : null;
+  const lapsed = !trainedToday && daysSinceLast != null && daysSinceLast >= 4;
 
   // Suggest the next day of the latest split (the day after the last one done).
   let nextDayIndex = 0;
@@ -154,6 +158,29 @@ export default async function HomePage() {
             )}
           </p>
         </Card>
+      ) : lapsed ? (
+        // The comeback card — no shame, just a lowered bar back in.
+        <Link
+          href={
+            nextDay && latestRoutine
+              ? `/workout?routine=${latestRoutine.id}&day=${nextDayIndex}`
+              : "/workout"
+          }
+          className="block"
+        >
+          <Card className="border-accent/40 py-4">
+            <p className="text-xs uppercase tracking-wide text-muted">
+              It&apos;s been {daysSinceLast} days
+            </p>
+            <p className="mt-1 text-lg font-semibold">One session restarts everything.</p>
+            <p className="mt-0.5 text-sm text-muted">
+              Go light. Half the sets count double today.
+            </p>
+            <span className="mt-3 inline-block rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-text">
+              Ease back in
+            </span>
+          </Card>
+        </Link>
       ) : nextDay && latestRoutine ? (
         <Link href={`/workout?routine=${latestRoutine.id}&day=${nextDayIndex}`} className="block">
           <Card className="flex items-center justify-between border-accent/40 py-4">

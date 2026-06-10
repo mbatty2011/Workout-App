@@ -19,6 +19,25 @@ interface Stats {
   unit: string;
 }
 
+/** Turn lifetime kilos into something you can picture. */
+function ironEquivalence(kg: number, unit: string): string | null {
+  const total = unit === "lb" ? kg * 0.4536 : kg; // normalize to kg
+  if (total < 3000) return null;
+  const units: [number, string, string][] = [
+    [180000, "jumbo jet", "jumbo jets"],
+    [150000, "blue whale", "blue whales"],
+    [6000, "elephant", "elephants"],
+    [1500, "car", "cars"],
+  ];
+  for (const [size, one, many] of units) {
+    if (total >= size) {
+      const n = Math.floor(total / size);
+      return `that's about ${n} ${n === 1 ? one : many} lifted, total`;
+    }
+  }
+  return null;
+}
+
 /** The one line that makes the session feel like it counted. */
 function milestoneLine(m: FinishMilestone | null): string | null {
   if (!m) return null;
@@ -98,6 +117,14 @@ export function WorkoutWrapup({
         {prs.length > 0 && (
           <p className="mt-2 text-sm text-accent">
             New PR{prs.length > 1 ? "s" : ""}: {prs.join(", ")}
+          </p>
+        )}
+        {milestone && milestone.lifetimeVolume > 0 && (
+          <p className="mt-1.5 text-xs text-muted">
+            Lifetime iron: {Math.round(milestone.lifetimeVolume).toLocaleString()} {stats.unit}
+            {ironEquivalence(milestone.lifetimeVolume, stats.unit)
+              ? ` — ${ironEquivalence(milestone.lifetimeVolume, stats.unit)}`
+              : ""}
           </p>
         )}
         {milestone?.why && (

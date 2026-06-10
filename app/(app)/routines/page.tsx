@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FEATURES } from "@/config/features";
 import { listRoutines } from "@/modules/routines/queries";
-import { Card, EmptyState, LinkButton, PageHeader, Pill } from "@/components/ui";
+import { StartFoundation } from "@/modules/routines/components/StartFoundation";
+import { Card, LinkButton, PageHeader, Pill } from "@/components/ui";
 
 export default async function RoutinesPage() {
   if (!FEATURES.splitBuilder) redirect("/");
@@ -27,15 +28,25 @@ export default async function RoutinesPage() {
       )}
 
       {routines.length === 0 ? (
-        <EmptyState
-          title="No splits yet"
-          subtitle="Create one by hand or let the AI helper draft one you can edit."
-          action={
-            <LinkButton href="/routines/new" size="sm">
-              Build a split
-            </LinkButton>
-          }
-        />
+        <div className="space-y-4 rounded-2xl border border-dashed border-border px-5 py-8">
+          <div className="text-center">
+            <p className="font-medium">You don&apos;t need to design anything.</p>
+            <p className="mt-1 text-sm text-muted">
+              Start with our 3-day beginner plan — or have the AI build one around you.
+            </p>
+          </div>
+          <StartFoundation label="Use the Foundation plan" />
+          <div className="text-center text-sm text-muted">
+            or{" "}
+            <Link href="/routines/ai" className="text-accent">
+              generate with AI
+            </Link>{" "}
+            ·{" "}
+            <Link href="/routines/new" className="text-accent">
+              build by hand
+            </Link>
+          </div>
+        </div>
       ) : (
         <ul className="space-y-3">
           {routines.map((r) => (

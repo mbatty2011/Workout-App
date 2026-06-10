@@ -8,7 +8,7 @@ import {
   getMuscleVolumeBreakdown,
   getStrengthGains,
 } from "@/modules/progress/queries";
-import { Card, EmptyState, PageHeader, Stat } from "@/components/ui";
+import { Card, EmptyState, LinkButton, PageHeader, Stat } from "@/components/ui";
 
 export default async function ProgressPage() {
   if (!FEATURES.progress) redirect("/");
@@ -88,8 +88,13 @@ export default async function ProgressPage() {
 
       {exercises.length === 0 ? (
         <EmptyState
-          title="No data yet"
-          subtitle="Log a few sessions and your per-exercise charts and PRs show up here."
+          title="Your proof page is empty — for now"
+          subtitle="Every set you log becomes a chart, a PR, a receipt. One workout starts it."
+          action={
+            <LinkButton href="/workout" size="sm">
+              Log your first workout
+            </LinkButton>
+          }
         />
       ) : (
         <ul className="space-y-2">

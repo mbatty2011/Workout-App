@@ -47,6 +47,8 @@ export interface FinishMilestone {
   daysSincePrev: number | null;
   /** The user's own reason for training, if they set one. */
   why: string | null;
+  /** All-time working volume including this session. */
+  lifetimeVolume: number;
 }
 
 export async function finishWorkout(
@@ -94,6 +96,18 @@ export async function finishWorkout(
     ? Math.floor((Date.now() - new Date(prev.started_at).getTime()) / 86400000)
     : null;
 
+  // Lifetime iron moved — makes "volume" visceral on the wrap-up.
+  let lifetimeVolume = 0;
+  const { data: allSets } = await supabase
+    .from("workout_sets")
+    .select("reps, weight, is_warmup, workouts!inner(owner_id, ended_at)")
+    .eq("workouts.owner_id", user.id)
+    .not("workouts.ended_at", "is", null)
+    .eq("is_warmup", false);
+  for (const s of allSets ?? []) {
+    if (s.weight != null && s.reps != null) lifetimeVolume += s.weight * s.reps;
+  }
+
   revalidatePath("/");
   revalidatePath("/progress");
   return {
@@ -102,6 +116,7 @@ export async function finishWorkout(
       totalWorkouts: (prevCount ?? 0) + 1,
       daysSincePrev,
       why: (profile as { why?: string | null } | null)?.why ?? null,
+      lifetimeVolume,
     },
   };
 }
