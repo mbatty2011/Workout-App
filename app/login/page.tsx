@@ -49,18 +49,20 @@ export default async function LoginPage() {
 
   return (
     <main className="mx-auto max-w-md px-6 pb-16">
-      {/* Hero */}
+      {/* Hero — sell the transformation, not the features. */}
       <header className="pt-16 text-center">
-        <p className="mx-auto mb-5 inline-block rounded-full border border-border px-3 py-1 text-xs text-muted">
-          Train · Eat · Progress
-        </p>
-        <h1 className="text-5xl font-semibold lowercase tracking-tight text-accent">
+        <h1 className="text-4xl font-semibold lowercase tracking-tight text-accent">
           {BRAND.name}
         </h1>
-        <p className="mt-3 text-lg leading-snug text-text">
-          The calm gym app with a sharp&nbsp;AI&nbsp;coach.
+        <p className="mt-6 text-[1.7rem] font-semibold leading-tight tracking-tight">
+          A year from now you&apos;ll
+          <br />
+          wish you started today.
         </p>
-        <p className="mt-1.5 text-sm text-muted">{BRAND.description}</p>
+        <p className="mx-auto mt-4 max-w-xs text-base leading-relaxed text-muted">
+          So we made starting take one tap. A ready-made plan, every set guided,
+          every win counted. No noise, no ads, no algorithm.
+        </p>
       </header>
 
       {/* Auth */}

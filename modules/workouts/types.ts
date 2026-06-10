@@ -13,4 +13,6 @@ export interface ActiveExercise {
   exercise: Exercise;
   sets: WorkoutSet[];
   previous: PreviousSet[];
+  /** Target sets × reps when the session came from a routine day. */
+  target?: { sets: number; reps: number };
 }

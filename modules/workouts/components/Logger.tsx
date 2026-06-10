@@ -220,7 +220,9 @@ export function Logger({
               <h3 className="font-semibold leading-tight">{ae.exercise.name}</h3>
               <p className="text-xs uppercase tracking-wide text-muted">{ae.exercise.muscle_group}</p>
             </div>
-            <span className="text-xs text-muted">{ae.sets.length} sets</span>
+            <span className={"text-xs " + (ae.target ? "font-medium text-accent" : "text-muted")}>
+              {ae.target ? `Target ${ae.target.sets}×${ae.target.reps}` : `${ae.sets.length} sets`}
+            </span>
           </div>
 
           <div className="mt-2 grid grid-cols-[2.2rem_1fr_1fr_1fr_2.4rem] items-center gap-2 px-4 text-[10px] font-medium uppercase tracking-wide text-muted">
@@ -253,7 +255,10 @@ export function Logger({
             onClick={() => addSet(ae.exercise.id)}
             className="flex w-full items-center justify-center gap-1.5 border-t border-border py-2.5 text-sm text-muted active:bg-bg/40"
           >
-            <PlusIcon className="h-4 w-4" /> Add set
+            <PlusIcon className="h-4 w-4" />
+            {ae.target && ae.sets.length < ae.target.sets
+              ? `Add set ${ae.sets.length + 1} of ${ae.target.sets}`
+              : "Add set"}
           </button>
         </section>
       ))}

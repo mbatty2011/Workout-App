@@ -59,6 +59,7 @@ export default async function WorkoutPage({
 
   let routineDayExerciseIds: string[] = [];
   let dayLabel = "Workout";
+  const targets = new Map<string, { sets: number; reps: number }>();
   if (active.routine_id && active.routine_day_index != null) {
     const supabase = await createClient();
     const { data: r } = await supabase
@@ -69,6 +70,9 @@ export default async function WorkoutPage({
     const days = (r?.days ?? []) as RoutineDay[];
     const dayDef = days[active.routine_day_index];
     if (dayDef?.name) dayLabel = dayDef.name;
+    for (const e of dayDef?.exercises ?? []) {
+      targets.set(e.exercise_id, { sets: e.target_sets, reps: e.target_reps });
+    }
     // Pre-load the day's exercises only into a fresh (empty) session.
     if (existingSets.length === 0) {
       routineDayExerciseIds = (dayDef?.exercises ?? []).map((e) => e.exercise_id);
@@ -91,6 +95,7 @@ export default async function WorkoutPage({
       exercise,
       sets: existingSets.filter((s) => s.exercise_id === exercise.id),
       previous: previous[exercise.id] ?? [],
+      target: targets.get(exercise.id),
     }));
 
   // A small library to seed the picker before the user searches.

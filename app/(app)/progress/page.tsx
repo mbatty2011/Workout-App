@@ -6,6 +6,7 @@ import {
   listLoggedExercises,
   getWeekSummary,
   getMuscleVolumeBreakdown,
+  getStrengthGains,
 } from "@/modules/progress/queries";
 import { Card, EmptyState, PageHeader, Stat } from "@/components/ui";
 
@@ -13,16 +14,38 @@ export default async function ProgressPage() {
   if (!FEATURES.progress) redirect("/");
   const profile = await getCurrentProfile();
   const unit = profile?.unit ?? "kg";
-  const [exercises, week, muscles] = await Promise.all([
+  const [exercises, week, muscles, gains] = await Promise.all([
     listLoggedExercises(),
     getWeekSummary(),
     getMuscleVolumeBreakdown(),
+    getStrengthGains(3),
   ]);
   const maxMuscle = Math.max(1, ...muscles.map((m) => m.volume));
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Progress" subtitle="Your numbers over time." />
+      <PageHeader title="Progress" subtitle="Proof it's working." />
+
+      {/* Since day one — the plainest possible proof that training works. */}
+      {gains.length > 0 && (
+        <Card className="space-y-2 border-accent/30">
+          <h2 className="text-sm font-semibold text-accent">Since day one</h2>
+          {gains.map((g) => (
+            <div key={g.exercise_id} className="flex items-baseline justify-between">
+              <span className="text-sm">{g.name}</span>
+              <span className="tabular text-sm">
+                <span className="text-muted">{g.firstWeight}</span>
+                <span className="mx-1 text-muted">→</span>
+                <span className="font-semibold">{g.bestWeight}{unit}</span>
+                <span className="ml-1.5 text-xs text-success">+{Math.round(g.gainPct)}%</span>
+              </span>
+            </div>
+          ))}
+          <p className="pt-0.5 text-[11px] text-muted">
+            You did that. Imagine three more months.
+          </p>
+        </Card>
+      )}
 
       <div className="grid grid-cols-3 gap-2">
         <Stat label="Workouts / wk" value={`${week.workouts}`} />

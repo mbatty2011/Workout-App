@@ -136,6 +136,72 @@ export async function listLoggedExercises(): Promise<ExerciseSummary[]> {
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+export interface StrengthGain {
+  exercise_id: string;
+  name: string;
+  firstWeight: number;
+  bestWeight: number;
+  gainPct: number;
+}
+
+/**
+ * "Since day one" — first-ever working weight vs all-time best per exercise.
+ * The plainest possible proof that training works. Top gainers first.
+ */
+export async function getStrengthGains(limit = 3): Promise<StrengthGain[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data } = await supabase
+    .from("workout_sets")
+    .select("exercise_id, weight, is_warmup, exercises(name), workouts!inner(owner_id, ended_at, started_at)")
+    .eq("workouts.owner_id", user.id)
+    .not("workouts.ended_at", "is", null)
+    .eq("is_warmup", false)
+    .not("weight", "is", null);
+
+  interface Acc {
+    name: string;
+    firstDay: string;
+    firstWeight: number;
+    bestWeight: number;
+  }
+  const map = new Map<string, Acc>();
+  for (const s of data ?? []) {
+    if (s.weight == null) continue;
+    const name = (s.exercises as unknown as { name: string } | null)?.name ?? "Exercise";
+    const day = (s.workouts as unknown as { started_at: string }).started_at;
+    const cur = map.get(s.exercise_id);
+    if (!cur) {
+      map.set(s.exercise_id, { name, firstDay: day, firstWeight: s.weight, bestWeight: s.weight });
+      continue;
+    }
+    // Track the heaviest set of the earliest session as the baseline.
+    if (day.slice(0, 10) < cur.firstDay.slice(0, 10)) {
+      cur.firstDay = day;
+      cur.firstWeight = s.weight;
+    } else if (day.slice(0, 10) === cur.firstDay.slice(0, 10) && s.weight > cur.firstWeight) {
+      cur.firstWeight = s.weight;
+    }
+    if (s.weight > cur.bestWeight) cur.bestWeight = s.weight;
+  }
+
+  return Array.from(map.entries())
+    .map(([exercise_id, a]) => ({
+      exercise_id,
+      name: a.name,
+      firstWeight: a.firstWeight,
+      bestWeight: a.bestWeight,
+      gainPct: a.firstWeight > 0 ? ((a.bestWeight - a.firstWeight) / a.firstWeight) * 100 : 0,
+    }))
+    .filter((g) => g.bestWeight > g.firstWeight)
+    .sort((a, b) => b.gainPct - a.gainPct)
+    .slice(0, limit);
+}
+
 export interface MuscleVolume {
   muscle_group: string;
   volume: number;
