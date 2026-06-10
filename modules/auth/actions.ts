@@ -53,6 +53,39 @@ export async function updateProfileSettings(input: {
   return {};
 }
 
+/** Upload a profile avatar and set it on the profile. */
+export async function uploadAvatar(
+  formData: FormData,
+): Promise<{ url?: string; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const file = formData.get("avatar");
+  if (!(file instanceof File) || file.size === 0) return { error: "No file" };
+  if (!file.type.startsWith("image/")) return { error: "Images only" };
+  if (file.size > 6 * 1024 * 1024) return { error: "Image too large (max 6MB)" };
+
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+  const { error: upErr } = await supabase.storage
+    .from("post-photos")
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (upErr) return { error: upErr.message };
+
+  const { data } = supabase.storage.from("post-photos").getPublicUrl(path);
+  const { error } = await supabase
+    .from("profiles")
+    .update({ avatar_url: data.publicUrl })
+    .eq("id", user.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/", "layout");
+  return { url: data.publicUrl };
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();

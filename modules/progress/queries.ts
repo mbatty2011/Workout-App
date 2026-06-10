@@ -136,6 +136,57 @@ export async function listLoggedExercises(): Promise<ExerciseSummary[]> {
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+export interface MuscleVolume {
+  muscle_group: string;
+  volume: number;
+  prevVolume: number;
+  sets: number;
+}
+
+/** Working volume per muscle group: last 7 days vs the 7 before (balance check). */
+export async function getMuscleVolumeBreakdown(): Promise<MuscleVolume[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const now = Date.now();
+  const since14 = new Date(now - 14 * 24 * 3600 * 1000).toISOString();
+  const cutoff7 = now - 7 * 24 * 3600 * 1000;
+
+  const { data } = await supabase
+    .from("workout_sets")
+    .select(
+      "reps, weight, is_warmup, exercises(muscle_group), workouts!inner(owner_id, ended_at, started_at)",
+    )
+    .eq("workouts.owner_id", user.id)
+    .not("workouts.ended_at", "is", null)
+    .gte("workouts.started_at", since14)
+    .eq("is_warmup", false);
+
+  const map = new Map<string, MuscleVolume>();
+  for (const s of data ?? []) {
+    const muscle =
+      (s.exercises as unknown as { muscle_group: string } | null)?.muscle_group ?? "Other";
+    const startedAt = (s.workouts as unknown as { started_at: string }).started_at;
+    const recent = new Date(startedAt).getTime() >= cutoff7;
+    const cur =
+      map.get(muscle) ?? { muscle_group: muscle, volume: 0, prevVolume: 0, sets: 0 };
+    const v = setVolume(s.weight, s.reps);
+    if (recent) {
+      cur.volume += v;
+      cur.sets++;
+    } else {
+      cur.prevVolume += v;
+    }
+    map.set(muscle, cur);
+  }
+  return Array.from(map.values())
+    .filter((m) => m.volume > 0 || m.prevVolume > 0)
+    .sort((a, b) => b.volume - a.volume);
+}
+
 export interface ExercisePoint {
   date: string;
   topSet: number;

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Input, Label } from "@/components/ui";
+import { CameraIcon } from "@/components/icons";
 import type { Profile, Unit } from "@/lib/database.types";
-import { signOut, updateProfileSettings } from "@/modules/auth/actions";
+import { signOut, updateProfileSettings, uploadAvatar } from "@/modules/auth/actions";
 
 export function ProfileSettings({ profile }: { profile: Profile }) {
   const router = useRouter();
@@ -13,8 +14,27 @@ export function ProfileSettings({ profile }: { profile: Profile }) {
   const [bio, setBio] = useState(profile.bio ?? "");
   const [unit, setUnit] = useState<Unit>(profile.unit);
   const [isPrivate, setIsPrivate] = useState(profile.is_private);
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
+  const [uploading, setUploading] = useState(false);
+  const avatarRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+
+  async function onAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    const fd = new FormData();
+    fd.set("avatar", file);
+    const res = await uploadAvatar(fd);
+    setUploading(false);
+    if (res.error) setError(res.error);
+    else if (res.url) {
+      setAvatarUrl(res.url);
+      router.refresh();
+    }
+  }
 
   if (!open) {
     return (
@@ -31,6 +51,30 @@ export function ProfileSettings({ profile }: { profile: Profile }) {
 
   return (
     <Card className="space-y-3">
+      <div className="flex items-center gap-3">
+        <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={onAvatar} />
+        <button
+          onClick={() => avatarRef.current?.click()}
+          className="relative shrink-0"
+          aria-label="Change avatar"
+        >
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt="" className="h-16 w-16 rounded-full object-cover" />
+          ) : (
+            <span className="grid h-16 w-16 place-items-center rounded-full bg-bg text-xl">
+              {profile.username[0]?.toUpperCase()}
+            </span>
+          )}
+          <span className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full bg-accent text-accent-text">
+            <CameraIcon className="h-3.5 w-3.5" />
+          </span>
+        </button>
+        <p className="text-xs text-muted">
+          {uploading ? "Uploading…" : "Tap the photo to change your avatar."}
+        </p>
+      </div>
+
       <div>
         <Label>Display name</Label>
         <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />

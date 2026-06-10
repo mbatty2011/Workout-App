@@ -160,7 +160,12 @@ export default async function HomePage() {
 
       {/* Recent sessions */}
       <section>
-        <h2 className="mb-2 text-sm font-medium text-muted">Recent</h2>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-muted">Recent</h2>
+          <Link href="/history" className="text-xs text-accent">
+            All history
+          </Link>
+        </div>
         {recent.length === 0 ? (
           <Card className="text-center text-sm text-muted">
             No workouts yet — your history will live here.
