@@ -95,6 +95,23 @@ These are one-file changes:
 - All third-party data sits behind a single adapter interface each
   (`NutritionProvider`, `AISplitProvider`).
 
+## Charging for it (covering the AI cost)
+
+The AI features (split generation, label scanning, weekly coach) are the only
+metered cost — everything else fits free tiers. The lowest-effort path to a
+price tier that covers Anthropic spend:
+
+1. **Stripe Payment Link** (no SDK needed): create a product ("Pro — AI coach",
+   e.g. $3–5/mo) in the Stripe dashboard and copy its payment link.
+2. Add an `is_pro boolean default false` column to `profiles`.
+3. Point the payment link's webhook (checkout.session.completed) at a small
+   route that flips `is_pro` for the matching email.
+4. Gate the three AI routes (`/api/ai/*`, `/api/food/scan`) on `is_pro` and
+   show the payment link where the gate trips.
+
+Rough cost math: each AI call is a few cents at most; a $4/mo tier covers a
+heavy user comfortably. Until then, AI runs on your own `ANTHROPIC_API_KEY`.
+
 ## What's in v1 (and what's parked)
 
 Built: auth/profile, exercise library, workout logging (optimistic, rest timer,

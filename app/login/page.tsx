@@ -83,9 +83,14 @@ export default async function LoginPage() {
         ))}
       </section>
 
-      <footer className="mt-12 text-center text-xs text-muted">
+      <footer className="mt-12 space-y-1 text-center text-xs text-muted">
         <p>{BRAND.tagline}</p>
-        <p className="mt-1">Free to start. Install it from your browser — no app store needed.</p>
+        <p>Free to start. Install it from your browser — no app store needed.</p>
+        <p>
+          <a href="/privacy" className="underline-offset-4 hover:underline">
+            Privacy
+          </a>
+        </p>
       </footer>
     </main>
   );

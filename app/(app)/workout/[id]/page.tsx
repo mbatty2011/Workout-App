@@ -42,8 +42,20 @@ export default async function WorkoutDetailPage({
   return (
     <div className="space-y-5">
       <PageHeader
-        title={new Date(workout.started_at).toLocaleDateString()}
-        subtitle={`${order.length} exercises · ${Math.round(totalVolume).toLocaleString()} ${unit} volume`}
+        title={new Date(workout.started_at).toLocaleDateString(undefined, {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+        })}
+        subtitle={[
+          workout.ended_at
+            ? `${Math.max(1, Math.round((new Date(workout.ended_at).getTime() - new Date(workout.started_at).getTime()) / 60000))} min`
+            : null,
+          `${order.length} exercises`,
+          `${Math.round(totalVolume).toLocaleString()} ${unit} volume`,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         action={
           FEATURES.socialFeed && workout.ended_at ? (
             <LinkButton href={`/feed/new?workout=${workout.id}`} size="sm">

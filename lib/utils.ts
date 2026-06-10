@@ -35,6 +35,32 @@ export function startOfTodayISO(): string {
   return d.toISOString();
 }
 
+const KG_PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
+const LB_PLATES = [45, 35, 25, 10, 5, 2.5];
+
+/**
+ * Plates per side for a barbell load ("how do I load this?").
+ * Returns null when the weight is below the bar or doesn't apply.
+ */
+export function platesPerSide(total: number, unit: string): string | null {
+  const bar = unit === "lb" ? 45 : 20;
+  if (!Number.isFinite(total) || total < bar) return null;
+  let perSide = (total - bar) / 2;
+  if (perSide === 0) return "empty bar";
+  const plates = unit === "lb" ? LB_PLATES : KG_PLATES;
+  const out: string[] = [];
+  for (const p of plates) {
+    let n = 0;
+    while (perSide >= p - 1e-9) {
+      perSide -= p;
+      n++;
+    }
+    if (n > 0) out.push(n > 1 ? `${p}×${n}` : `${p}`);
+  }
+  if (out.length === 0 || perSide > 0.01) return null; // not loadable exactly
+  return out.join(" + ") + " / side";
+}
+
 /** True if the media URL looks like a video (by extension). */
 export function isVideoUrl(url: string | null | undefined): boolean {
   if (!url) return false;

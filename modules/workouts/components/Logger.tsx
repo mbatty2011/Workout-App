@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui";
 import { CheckIcon, PlusIcon } from "@/components/icons";
-import { cn, estimate1RM, setVolume } from "@/lib/utils";
+import { cn, estimate1RM, platesPerSide, setVolume } from "@/lib/utils";
 import type { Exercise, WorkoutSet } from "@/lib/database.types";
 import type { ActiveExercise, PreviousSet } from "@/modules/workouts/types";
 import { ExercisePicker } from "@/modules/exercises/components/ExercisePicker";
@@ -234,6 +234,7 @@ export function Logger({
                 index={i}
                 previous={ae.previous[i]}
                 unit={unit}
+                barbell={ae.exercise.equipment === "Barbell"}
                 done={done.has(s.id)}
                 onPatch={(patch) => patchSet(s.id, patch)}
                 onToggleWarmup={() => patchSet(s.id, { is_warmup: !s.is_warmup })}
@@ -294,6 +295,7 @@ function SetRow({
   index,
   previous,
   unit,
+  barbell,
   done,
   onPatch,
   onToggleWarmup,
@@ -304,6 +306,7 @@ function SetRow({
   index: number;
   previous: PreviousSet | undefined;
   unit: string;
+  barbell: boolean;
   done: boolean;
   onPatch: (patch: Partial<WorkoutSet>) => void;
   onToggleWarmup: () => void;
@@ -315,6 +318,7 @@ function SetRow({
       ? `${previous.weight}×${previous.reps}`
       : "–";
   const e1rm = estimate1RM(set.weight, set.reps);
+  const plates = barbell && set.weight != null ? platesPerSide(set.weight, unit) : null;
 
   return (
     <div
@@ -373,15 +377,16 @@ function SetRow({
         </button>
       </div>
 
-      {e1rm && !set.is_warmup && (
+      {(e1rm && !set.is_warmup) || plates ? (
         <span className="col-span-5 px-2 text-[10px] text-muted">
-          est. 1RM {e1rm}{unit}
+          {e1rm && !set.is_warmup ? `est. 1RM ${e1rm}${unit}` : ""}
+          {e1rm && !set.is_warmup && plates ? " · " : ""}
+          {plates ? `🏋 ${plates}` : ""}
           <button onClick={onRemove} className="float-right text-muted/70 active:text-danger">
             remove
           </button>
         </span>
-      )}
-      {(!e1rm || set.is_warmup) && (
+      ) : (
         <button onClick={onRemove} className="col-span-5 px-2 text-right text-[10px] text-muted/70 active:text-danger">
           remove
         </button>
