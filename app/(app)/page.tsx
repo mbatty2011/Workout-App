@@ -9,41 +9,92 @@ import {
 } from "@/modules/progress/queries";
 import { listRoutines } from "@/modules/routines/queries";
 import { Card, LinkButton, PageHeader } from "@/components/ui";
-import { FlameIcon, TrendIcon, DumbbellIcon } from "@/components/icons";
+import { FlameIcon } from "@/components/icons";
 import { CoachCard } from "@/modules/home/components/CoachCard";
-import { relativeTime } from "@/lib/utils";
+import { StartFoundation } from "@/modules/routines/components/StartFoundation";
+import { dayKey, relativeTime } from "@/lib/utils";
 
 export default async function HomePage() {
   const profile = await getCurrentProfile();
   const unit = profile?.unit ?? "kg";
+  const why = (profile as { why?: string | null } | null)?.why ?? null;
 
   const [active, recent, week, stats, routines, exercises] = await Promise.all([
     FEATURES.workoutLogging ? getActiveWorkout() : null,
-    FEATURES.workoutLogging ? listRecentWorkouts(4) : [],
+    FEATURES.workoutLogging ? listRecentWorkouts(15) : [],
     FEATURES.progress ? getWeekSummary() : null,
     FEATURES.progress ? getTrainingStats() : null,
     FEATURES.splitBuilder ? listRoutines() : [],
     FEATURES.progress ? listLoggedExercises() : [],
   ]);
 
+  const firstName = (profile?.display_name ?? profile?.username ?? "").split(" ")[0];
+  const isNew = (stats?.totalWorkouts ?? 0) === 0 && !active;
+
+  /* ------------------------------------------------------------------ */
+  /* Day One — a brand-new user sees exactly one thing to do.            */
+  /* ------------------------------------------------------------------ */
+  if (isNew) {
+    return (
+      <div className="flex min-h-[70vh] flex-col justify-center space-y-8">
+        <div className="text-center">
+          <p className="text-xs font-medium uppercase tracking-widest text-accent">Day one</p>
+          <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight">
+            The only workout that
+            <br />
+            matters is the first one.
+          </h1>
+          {why && (
+            <p className="mx-auto mt-3 max-w-xs text-sm italic text-muted">
+              You&apos;re here for: &ldquo;{why}&rdquo;
+            </p>
+          )}
+        </div>
+
+        <StartFoundation />
+
+        <div className="text-center text-sm text-muted">
+          Already train?{" "}
+          <Link href="/routines" className="text-accent">
+            Build or generate your own split
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Returning user — one clear "Today", then momentum, then the rest.   */
+  /* ------------------------------------------------------------------ */
+  const today = dayKey();
+  const trainedToday = recent.some((w) => dayKey(new Date(w.started_at)) === today);
   const latestRoutine = routines[0];
+
+  // Suggest the next day of the latest split (the day after the last one done).
+  let nextDayIndex = 0;
+  if (latestRoutine && recent[0]?.routine_id === latestRoutine.id && recent[0].routine_day_index != null) {
+    nextDayIndex = (recent[0].routine_day_index + 1) % Math.max(1, latestRoutine.days.length);
+  }
+  const nextDay = latestRoutine?.days[nextDayIndex];
+
+  // Week dots: Mon..Sun of the current week.
+  const weekDays = buildWeekDots(recent.map((w) => new Date(w.started_at)));
+
   const bestLifts = exercises
     .filter((e) => e.best_e1rm != null)
     .sort((a, b) => (b.best_e1rm ?? 0) - (a.best_e1rm ?? 0))
     .slice(0, 3);
 
-  const firstName = (profile?.display_name ?? profile?.username ?? "").split(" ")[0];
-
   return (
     <div className="space-y-4">
       <PageHeader
         title={greeting(firstName)}
-        subtitle={subline(stats?.workoutsThisWeek ?? 0)}
+        subtitle={why ? `For: ${why}` : undefined}
         action={
           <Link href="/profile" aria-label="Profile">
             {profile?.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={profile.avatar_url} alt="" className="h-9 w-9 rounded-full" />
+              <img src={profile.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
             ) : (
               <span className="grid h-9 w-9 place-items-center rounded-full bg-surface text-sm font-medium">
                 {(profile?.username ?? "?")[0]?.toUpperCase()}
@@ -53,85 +104,77 @@ export default async function HomePage() {
         }
       />
 
-      {/* Resume banner — always first when a session is open */}
-      {active && (
+      {/* Week at a glance: seven dots + streak. The simplest momentum visual. */}
+      <Card className="flex items-center justify-between py-3">
+        <div className="flex gap-2.5">
+          {weekDays.map((d) => (
+            <div key={d.label} className="flex flex-col items-center gap-1">
+              <span
+                className={
+                  "h-2.5 w-2.5 rounded-full " +
+                  (d.trained ? "bg-accent" : d.isToday ? "border border-accent/60" : "bg-border")
+                }
+              />
+              <span className={"text-[9px] " + (d.isToday ? "text-text" : "text-muted")}>
+                {d.label}
+              </span>
+            </div>
+          ))}
+        </div>
+        {(stats?.weekStreak ?? 0) > 0 && (
+          <div className="flex items-center gap-1 text-accent">
+            <FlameIcon className="h-4 w-4" />
+            <span className="tabular text-sm font-semibold">{stats?.weekStreak}w</span>
+          </div>
+        )}
+      </Card>
+
+      {/* TODAY — exactly one thing to do. */}
+      {active ? (
         <Link href="/workout" className="block">
-          <Card className="flex items-center justify-between border-accent/40 bg-accent/[0.07]">
+          <Card className="flex items-center justify-between border-accent/40 bg-accent/[0.07] py-4">
             <div>
-              <p className="font-medium">Workout in progress</p>
+              <p className="font-semibold">Workout in progress</p>
               <p className="text-xs text-muted">Started {relativeTime(active.started_at)} ago</p>
             </div>
-            <span className="rounded-xl bg-accent px-3.5 py-2 text-sm font-medium text-accent-text">
+            <span className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-text">
               Resume
             </span>
           </Card>
         </Link>
-      )}
-
-      {/* Streak + week stats */}
-      {FEATURES.progress && stats && week && (
-        <div className="grid grid-cols-3 gap-2">
-          <Card className="flex flex-col items-center gap-0.5 py-3">
-            <FlameIcon className="h-5 w-5 text-accent" />
-            <p className="tabular text-xl font-semibold leading-tight">{stats.weekStreak}</p>
-            <p className="text-[10px] uppercase tracking-wide text-muted">week streak</p>
+      ) : trainedToday ? (
+        <Card className="py-4">
+          <p className="font-semibold">Done for today ✓</p>
+          <p className="mt-0.5 text-sm text-muted">
+            Recovery is where the muscle gets built.{" "}
+            {FEATURES.foodTracker && (
+              <Link href="/food" className="text-accent">
+                Hit your protein →
+              </Link>
+            )}
+          </p>
+        </Card>
+      ) : nextDay && latestRoutine ? (
+        <Link href={`/workout?routine=${latestRoutine.id}&day=${nextDayIndex}`} className="block">
+          <Card className="flex items-center justify-between border-accent/40 py-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted">Up next · {latestRoutine.name}</p>
+              <p className="text-lg font-semibold">{nextDay.name}</p>
+              <p className="text-xs text-muted">{nextDay.exercises.length} exercises</p>
+            </div>
+            <span className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-text">
+              Start
+            </span>
           </Card>
-          <Card className="flex flex-col items-center gap-0.5 py-3">
-            <DumbbellIcon className="h-5 w-5 text-muted" />
-            <p className="tabular text-xl font-semibold leading-tight">{stats.workoutsThisWeek}</p>
-            <p className="text-[10px] uppercase tracking-wide text-muted">this week</p>
-          </Card>
-          <Card className="flex flex-col items-center gap-0.5 py-3">
-            <TrendIcon className="h-5 w-5 text-muted" />
-            <p className="tabular text-xl font-semibold leading-tight">
-              {compactNumber(week.volume)}
-            </p>
-            <p className="text-[10px] uppercase tracking-wide text-muted">{unit} volume</p>
-          </Card>
-        </div>
+        </Link>
+      ) : (
+        <LinkButton href="/workout" size="lg" className="w-full">
+          Start today&apos;s workout
+        </LinkButton>
       )}
 
       {/* AI coach */}
-      {FEATURES.aiSplitHelper && <CoachCard />}
-
-      {/* Today's plan: jump straight into a day of the latest split */}
-      {!active && FEATURES.splitBuilder && latestRoutine && (
-        <Card className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">{latestRoutine.name}</h2>
-            <Link href={`/routines/${latestRoutine.id}`} className="text-xs text-muted">
-              Edit
-            </Link>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {latestRoutine.days.map((d, i) => (
-              <Link
-                key={i}
-                href={`/workout?routine=${latestRoutine.id}&day=${i}`}
-                className="rounded-xl border border-border px-3.5 py-2 text-sm active:bg-surface"
-              >
-                ▶ {d.name}
-              </Link>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Quick actions */}
-      {!active && (
-        <div className="grid grid-cols-2 gap-2">
-          {FEATURES.workoutLogging && (
-            <LinkButton href="/workout" size="lg">
-              Start workout
-            </LinkButton>
-          )}
-          {FEATURES.foodTracker && (
-            <LinkButton href="/food" size="lg" variant="outline">
-              Log food
-            </LinkButton>
-          )}
-        </div>
-      )}
+      {FEATURES.aiSplitHelper && (stats?.totalWorkouts ?? 0) > 0 && <CoachCard />}
 
       {/* Best lifts */}
       {FEATURES.progress && bestLifts.length > 0 && (
@@ -166,30 +209,24 @@ export default async function HomePage() {
             All history
           </Link>
         </div>
-        {recent.length === 0 ? (
-          <Card className="text-center text-sm text-muted">
-            No workouts yet — your history will live here.
-          </Card>
-        ) : (
-          <ul className="space-y-2">
-            {recent.map((w) => (
-              <li key={w.id}>
-                <Link href={`/workout/${w.id}`}>
-                  <Card className="flex items-center justify-between py-3">
-                    <span className="text-sm">
-                      {new Date(w.started_at).toLocaleDateString(undefined, {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                    <span className="text-xs text-muted">{relativeTime(w.started_at)} ago</span>
-                  </Card>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <ul className="space-y-2">
+          {recent.slice(0, 3).map((w) => (
+            <li key={w.id}>
+              <Link href={`/workout/${w.id}`}>
+                <Card className="flex items-center justify-between py-3">
+                  <span className="text-sm">
+                    {new Date(w.started_at).toLocaleDateString(undefined, {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                  <span className="text-xs text-muted">{relativeTime(w.started_at)} ago</span>
+                </Card>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );
@@ -201,14 +238,17 @@ function greeting(name: string): string {
   return name ? `${part}, ${name}` : part;
 }
 
-function subline(thisWeek: number): string {
-  if (thisWeek === 0) return "Fresh week. First one sets the tone.";
-  if (thisWeek === 1) return "1 down this week. Keep it rolling.";
-  return `${thisWeek} sessions this week. Strong pace.`;
-}
-
-function compactNumber(n: number): string {
-  if (n >= 10000) return `${Math.round(n / 1000)}k`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return `${Math.round(n)}`;
+function buildWeekDots(dates: Date[]): { label: string; trained: boolean; isToday: boolean }[] {
+  const labels = ["M", "T", "W", "T", "F", "S", "S"];
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  const trainedKeys = new Set(dates.map((d) => dayKey(d)));
+  return labels.map((label, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const key = dayKey(d);
+    return { label, trained: trainedKeys.has(key), isToday: key === dayKey(now) };
+  });
 }

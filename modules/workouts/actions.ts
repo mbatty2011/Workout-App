@@ -40,10 +40,19 @@ export async function startWorkout(
   return { id: data.id };
 }
 
+export interface FinishMilestone {
+  /** Total completed workouts including this one. */
+  totalWorkouts: number;
+  /** Days since the previous completed workout (null if this is the first). */
+  daysSincePrev: number | null;
+  /** The user's own reason for training, if they set one. */
+  why: string | null;
+}
+
 export async function finishWorkout(
   workoutId: string,
   note?: string,
-): Promise<{ error?: string; prs?: string[] }> {
+): Promise<{ error?: string; prs?: string[]; milestone?: FinishMilestone }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -54,6 +63,26 @@ export async function finishWorkout(
   // history from the user's other completed workouts (spec §5.5).
   const prs = await computePRs(workoutId, user.id);
 
+  // Milestone context — gathered before closing so "previous" excludes this one.
+  const [{ count: prevCount }, { data: prev }, { data: profile }] = await Promise.all([
+    supabase
+      .from("workouts")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", user.id)
+      .not("ended_at", "is", null)
+      .neq("id", workoutId),
+    supabase
+      .from("workouts")
+      .select("started_at")
+      .eq("owner_id", user.id)
+      .not("ended_at", "is", null)
+      .neq("id", workoutId)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+  ]);
+
   const { error } = await supabase
     .from("workouts")
     .update({ ended_at: new Date().toISOString(), note: note ?? null })
@@ -61,9 +90,20 @@ export async function finishWorkout(
     .eq("owner_id", user.id);
   if (error) return { error: error.message };
 
+  const daysSincePrev = prev
+    ? Math.floor((Date.now() - new Date(prev.started_at).getTime()) / 86400000)
+    : null;
+
   revalidatePath("/");
   revalidatePath("/progress");
-  return { prs };
+  return {
+    prs,
+    milestone: {
+      totalWorkouts: (prevCount ?? 0) + 1,
+      daysSincePrev,
+      why: (profile as { why?: string | null } | null)?.why ?? null,
+    },
+  };
 }
 
 /**

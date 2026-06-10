@@ -47,6 +47,7 @@ export interface Database {
           display_name: string | null;
           avatar_url: string | null;
           bio: string | null;
+          why: string | null;
           unit: Unit;
           is_private: boolean;
           is_minor: boolean;
@@ -58,6 +59,7 @@ export interface Database {
           display_name?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
+          why?: string | null;
           unit?: Unit;
           is_private?: boolean;
           is_minor?: boolean;

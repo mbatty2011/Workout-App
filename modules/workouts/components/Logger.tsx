@@ -11,7 +11,7 @@ import type { ActiveExercise, PreviousSet } from "@/modules/workouts/types";
 import { ExercisePicker } from "@/modules/exercises/components/ExercisePicker";
 import { RestTimer } from "@/modules/workouts/components/RestTimer";
 import { WorkoutWrapup } from "@/modules/workouts/components/WorkoutWrapup";
-import { finishWorkout, discardWorkout } from "@/modules/workouts/actions";
+import { finishWorkout, discardWorkout, type FinishMilestone } from "@/modules/workouts/actions";
 
 /**
  * Optimistic, offline-tolerant set logger. Every entry mutates local state
@@ -40,7 +40,11 @@ export function Logger({
   const [picking, setPicking] = useState(false);
   const [restTick, setRestTick] = useState(0);
   const [finishing, setFinishing] = useState(false);
-  const [wrapup, setWrapup] = useState<{ prs: string[]; durationSecs: number } | null>(null);
+  const [wrapup, setWrapup] = useState<{
+    prs: string[];
+    durationSecs: number;
+    milestone: FinishMilestone | null;
+  } | null>(null);
 
   const totalSets = exercises.reduce((n, e) => n + e.sets.length, 0);
   const doneCount = done.size;
@@ -154,7 +158,7 @@ export function Logger({
     const durationSecs = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
     const res = await finishWorkout(workoutId);
     setFinishing(false);
-    setWrapup({ prs: res.prs ?? [], durationSecs });
+    setWrapup({ prs: res.prs ?? [], durationSecs, milestone: res.milestone ?? null });
   }
 
   if (wrapup) {
@@ -162,6 +166,7 @@ export function Logger({
       <WorkoutWrapup
         workoutId={workoutId}
         prs={wrapup.prs}
+        milestone={wrapup.milestone}
         stats={{ durationSecs: wrapup.durationSecs, sets: totalSets, volume: totalVolume, unit }}
         onDone={() => router.push("/")}
       />

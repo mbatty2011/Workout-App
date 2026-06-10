@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { DumbbellIcon, PlusIcon } from "@/components/icons";
 import { startWorkout } from "@/modules/workouts/actions";
+import { StartFoundation } from "@/modules/routines/components/StartFoundation";
 
 interface RoutineLite {
   id: string;
@@ -36,11 +37,24 @@ export function StartScreen({ routines }: { routines: RoutineLite[] }) {
         </div>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Ready to lift?</h1>
-          <p className="mt-1 text-sm text-muted">Start fresh, or jump into a day from a split.</p>
+          <p className="mt-1 text-sm text-muted">
+            {routines.length === 0
+              ? "No plan needed — we have one ready for you."
+              : "Start fresh, or jump into a day from a split."}
+          </p>
         </div>
-        <Button size="lg" className="w-full" disabled={pending} onClick={() => begin()}>
-          <PlusIcon className="h-5 w-5" /> {pending ? "Starting…" : "Start empty workout"}
-        </Button>
+        {routines.length === 0 ? (
+          <>
+            <StartFoundation label="Start the Foundation plan" />
+            <Button variant="ghost" disabled={pending} onClick={() => begin()}>
+              {pending ? "Starting…" : "Or start an empty workout"}
+            </Button>
+          </>
+        ) : (
+          <Button size="lg" className="w-full" disabled={pending} onClick={() => begin()}>
+            <PlusIcon className="h-5 w-5" /> {pending ? "Starting…" : "Start empty workout"}
+          </Button>
+        )}
       </div>
 
       {routines.length > 0 && (

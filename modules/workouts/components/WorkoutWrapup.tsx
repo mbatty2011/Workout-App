@@ -6,13 +6,28 @@ import { MediaView } from "@/components/MediaView";
 import { CameraIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import type { Visibility } from "@/lib/database.types";
-import { saveWorkoutWrapup, uploadWorkoutPhoto } from "@/modules/workouts/actions";
+import {
+  saveWorkoutWrapup,
+  uploadWorkoutPhoto,
+  type FinishMilestone,
+} from "@/modules/workouts/actions";
 
 interface Stats {
   durationSecs: number;
   sets: number;
   volume: number;
   unit: string;
+}
+
+/** The one line that makes the session feel like it counted. */
+function milestoneLine(m: FinishMilestone | null): string | null {
+  if (!m) return null;
+  if (m.totalWorkouts === 1) return "That was workout #1. The hardest one is behind you.";
+  if (m.daysSincePrev != null && m.daysSincePrev >= 10)
+    return `First session in ${m.daysSincePrev} days. Coming back is the whole game.`;
+  if ([10, 25, 50, 100, 200, 365, 500].includes(m.totalWorkouts))
+    return `Workout #${m.totalWorkouts}. Most people never get here.`;
+  return `Workout #${m.totalWorkouts} in the books.`;
 }
 
 const VIS: { value: Visibility; label: string }[] = [
@@ -25,11 +40,13 @@ const VIS: { value: Visibility; label: string }[] = [
 export function WorkoutWrapup({
   workoutId,
   prs,
+  milestone,
   stats,
   onDone,
 }: {
   workoutId: string;
   prs: string[];
+  milestone: FinishMilestone | null;
   stats: Stats;
   onDone: () => void;
 }) {
@@ -70,12 +87,22 @@ export function WorkoutWrapup({
       <div className="pt-2 text-center">
         {prs.length > 0 && <div className="animate-pr text-5xl">🏆</div>}
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Workout complete</h1>
-        <p className="mt-1 text-sm text-muted">
+        {milestoneLine(milestone) && (
+          <p className="mx-auto mt-2 max-w-xs text-base font-medium text-accent">
+            {milestoneLine(milestone)}
+          </p>
+        )}
+        <p className="mt-2 text-sm text-muted">
           {mins} min · {stats.sets} sets · {Math.round(stats.volume).toLocaleString()} {stats.unit} volume
         </p>
         {prs.length > 0 && (
           <p className="mt-2 text-sm text-accent">
             New PR{prs.length > 1 ? "s" : ""}: {prs.join(", ")}
+          </p>
+        )}
+        {milestone?.why && (
+          <p className="mx-auto mt-3 max-w-xs text-sm italic text-muted">
+            Why you started: &ldquo;{milestone.why}&rdquo;
           </p>
         )}
       </div>

@@ -52,6 +52,19 @@ export function OnboardingForm() {
         </div>
       </div>
 
+      <div>
+        <Label>What are you training for?</Label>
+        <Input
+          name="why"
+          placeholder="e.g. to feel strong again, my kids, summer"
+          maxLength={120}
+          autoComplete="off"
+        />
+        <p className="mt-1 text-xs text-muted">
+          We&apos;ll remind you on the days it matters. You can change it later.
+        </p>
+      </div>
+
       <label className="flex items-center gap-2 text-sm text-muted">
         <input type="checkbox" name="is_minor" className="h-4 w-4 accent-accent" />
         I&apos;m under 18 (account will be private by default)

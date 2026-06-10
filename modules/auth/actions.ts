@@ -107,6 +107,7 @@ export async function completeOnboarding(formData: FormData) {
   const username = String(formData.get("username")).trim().toLowerCase();
   const unit = (String(formData.get("unit")) as Unit) || "kg";
   const isMinor = formData.get("is_minor") === "on";
+  const why = String(formData.get("why") ?? "").trim().slice(0, 120);
 
   if (!/^[a-z0-9_]{3,20}$/.test(username)) {
     return { error: "Username must be 3–20 chars: letters, numbers, underscore." };
@@ -124,6 +125,11 @@ export async function completeOnboarding(formData: FormData) {
   if (error) {
     if (error.code === "23505") return { error: "That username is taken." };
     return { error: error.message };
+  }
+
+  // Best-effort: tolerate databases that haven't run migration 0005 yet.
+  if (why) {
+    await supabase.from("profiles").update({ why }).eq("id", user.id);
   }
 
   revalidatePath("/", "layout");
