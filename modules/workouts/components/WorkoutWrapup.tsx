@@ -11,6 +11,7 @@ import {
   uploadWorkoutPhoto,
   type FinishMilestone,
 } from "@/modules/workouts/actions";
+import { setGoal } from "@/modules/goals/actions";
 
 interface Stats {
   durationSecs: number;
@@ -36,6 +37,44 @@ function ironEquivalence(kg: number, unit: string): string | null {
     }
   }
   return null;
+}
+
+/** Post-win commitment: pick a weekly frequency while motivation is high. */
+function CommitmentPrompt() {
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [, start] = useTransition();
+
+  if (chosen) {
+    return (
+      <Card className="border-accent/30 py-3 text-center text-sm">
+        <span className="font-medium text-accent">{chosen}× a week.</span>{" "}
+        <span className="text-muted">We&apos;ll track it on your home screen.</span>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="space-y-2.5 border-accent/30">
+      <p className="text-sm font-medium">Lock it in while it feels good:</p>
+      <p className="text-xs text-muted">How many days a week are you committing to?</p>
+      <div className="grid grid-cols-4 gap-2">
+        {[2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            onClick={() => {
+              setChosen(n);
+              start(async () => {
+                await setGoal("workouts_per_week", n);
+              });
+            }}
+            className="rounded-xl border border-border py-2.5 text-sm font-semibold active:bg-bg"
+          >
+            {n}×
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
 }
 
 /** The one line that makes the session feel like it counted. */
@@ -133,6 +172,9 @@ export function WorkoutWrapup({
           </p>
         )}
       </div>
+
+      {/* The commitment moment: ask right after a win, never before. */}
+      {milestone && milestone.weeklyTarget == null && <CommitmentPrompt />}
 
       <Card className="space-y-3">
         <textarea

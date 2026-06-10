@@ -41,6 +41,22 @@ export async function getWeightLogs(limit = 60): Promise<WeightLog[]> {
   return data ?? [];
 }
 
+/** The user's committed workouts-per-week target, if any. */
+export async function getWeeklyTarget(): Promise<number | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from("goals")
+    .select("target")
+    .eq("owner_id", user.id)
+    .eq("type", "workouts_per_week")
+    .maybeSingle();
+  return data?.target ?? null;
+}
+
 export interface MacroTarget {
   target: number;
   current: number;

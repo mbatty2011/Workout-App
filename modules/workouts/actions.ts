@@ -49,6 +49,8 @@ export interface FinishMilestone {
   why: string | null;
   /** All-time working volume including this session. */
   lifetimeVolume: number;
+  /** The user's committed workouts-per-week target, if set. */
+  weeklyTarget: number | null;
 }
 
 export async function finishWorkout(
@@ -108,6 +110,13 @@ export async function finishWorkout(
     if (s.weight != null && s.reps != null) lifetimeVolume += s.weight * s.reps;
   }
 
+  const { data: weeklyGoal } = await supabase
+    .from("goals")
+    .select("target")
+    .eq("owner_id", user.id)
+    .eq("type", "workouts_per_week")
+    .maybeSingle();
+
   revalidatePath("/");
   revalidatePath("/progress");
   return {
@@ -117,6 +126,7 @@ export async function finishWorkout(
       daysSincePrev,
       why: (profile as { why?: string | null } | null)?.why ?? null,
       lifetimeVolume,
+      weeklyTarget: weeklyGoal?.target ?? null,
     },
   };
 }

@@ -8,6 +8,7 @@ import {
   listLoggedExercises,
 } from "@/modules/progress/queries";
 import { listRoutines } from "@/modules/routines/queries";
+import { getWeeklyTarget } from "@/modules/goals/queries";
 import { Card, LinkButton, PageHeader } from "@/components/ui";
 import { FlameIcon } from "@/components/icons";
 import { CoachCard } from "@/modules/home/components/CoachCard";
@@ -19,13 +20,14 @@ export default async function HomePage() {
   const unit = profile?.unit ?? "kg";
   const why = (profile as { why?: string | null } | null)?.why ?? null;
 
-  const [active, recent, week, stats, routines, exercises] = await Promise.all([
+  const [active, recent, week, stats, routines, exercises, weeklyTarget] = await Promise.all([
     FEATURES.workoutLogging ? getActiveWorkout() : null,
     FEATURES.workoutLogging ? listRecentWorkouts(15) : [],
     FEATURES.progress ? getWeekSummary() : null,
     FEATURES.progress ? getTrainingStats() : null,
     FEATURES.splitBuilder ? listRoutines() : [],
     FEATURES.progress ? listLoggedExercises() : [],
+    FEATURES.weightGoals ? getWeeklyTarget() : null,
   ]);
 
   const firstName = (profile?.display_name ?? profile?.username ?? "").split(" ")[0];
@@ -125,12 +127,26 @@ export default async function HomePage() {
             </div>
           ))}
         </div>
-        {(stats?.weekStreak ?? 0) > 0 && (
-          <div className="flex items-center gap-1 text-accent">
-            <FlameIcon className="h-4 w-4" />
-            <span className="tabular text-sm font-semibold">{stats?.weekStreak}w</span>
-          </div>
-        )}
+        <div className="flex flex-col items-end gap-0.5">
+          {weeklyTarget != null && (
+            <span
+              className={
+                "tabular text-sm font-semibold " +
+                ((stats?.workoutsThisWeek ?? 0) >= weeklyTarget ? "text-success" : "text-text")
+              }
+            >
+              {(stats?.workoutsThisWeek ?? 0) >= weeklyTarget
+                ? "Week complete ✓"
+                : `${stats?.workoutsThisWeek ?? 0}/${weeklyTarget} this week`}
+            </span>
+          )}
+          {(stats?.weekStreak ?? 0) > 0 && (
+            <span className="flex items-center gap-1 text-accent">
+              <FlameIcon className="h-4 w-4" />
+              <span className="tabular text-xs font-semibold">{stats?.weekStreak}w streak</span>
+            </span>
+          )}
+        </div>
       </Card>
 
       {/* TODAY — exactly one thing to do. */}
