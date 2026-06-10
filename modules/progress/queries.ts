@@ -38,6 +38,56 @@ export async function getWeekSummary(): Promise<WeekSummary> {
   return { workouts: ids.length, sets: sets?.length ?? 0, volume };
 }
 
+export interface TrainingStats {
+  /** Consecutive calendar weeks (incl. this one) with ≥1 completed workout. */
+  weekStreak: number;
+  workoutsThisWeek: number;
+  totalWorkouts: number;
+}
+
+/** Streak + counts for the home dashboard. */
+export async function getTrainingStats(): Promise<TrainingStats> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { weekStreak: 0, workoutsThisWeek: 0, totalWorkouts: 0 };
+
+  const { data, count } = await supabase
+    .from("workouts")
+    .select("started_at", { count: "exact" })
+    .eq("owner_id", user.id)
+    .not("ended_at", "is", null)
+    .order("started_at", { ascending: false })
+    .limit(300);
+
+  const dates = (data ?? []).map((w) => new Date(w.started_at));
+
+  // Monday-anchored week key.
+  const weekKey = (d: Date) => {
+    const x = new Date(d);
+    const day = (x.getDay() + 6) % 7; // Mon=0
+    x.setDate(x.getDate() - day);
+    x.setHours(0, 0, 0, 0);
+    return x.getTime();
+  };
+
+  const weeks = new Set(dates.map(weekKey));
+  const thisWeek = weekKey(new Date());
+  const MS_WEEK = 7 * 24 * 3600 * 1000;
+
+  let weekStreak = 0;
+  // Streak may start this week or (grace) last week if this week is still young.
+  let cursor = weeks.has(thisWeek) ? thisWeek : thisWeek - MS_WEEK;
+  while (weeks.has(cursor)) {
+    weekStreak++;
+    cursor -= MS_WEEK;
+  }
+
+  const workoutsThisWeek = dates.filter((d) => weekKey(d) === thisWeek).length;
+  return { weekStreak, workoutsThisWeek, totalWorkouts: count ?? dates.length };
+}
+
 export interface ExerciseSummary {
   exercise_id: string;
   name: string;

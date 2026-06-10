@@ -34,11 +34,15 @@ export async function addCustomExercise(
   return { exercise: data };
 }
 
-/** Search action callable from client components. */
-export async function searchExercisesAction(query: string): Promise<Exercise[]> {
+/** Search action callable from client components. Optional muscle filter. */
+export async function searchExercisesAction(
+  query: string,
+  muscleGroup?: string,
+): Promise<Exercise[]> {
   const supabase = await createClient();
   let q = supabase.from("exercises").select("*").order("name").limit(50);
   if (query.trim()) q = q.ilike("name", `%${query.trim()}%`);
+  if (muscleGroup) q = q.eq("muscle_group", muscleGroup);
   const { data } = await q;
   return data ?? [];
 }

@@ -21,6 +21,7 @@ export function ExercisePicker({
   onClose?: () => void;
 }) {
   const [query, setQuery] = useState("");
+  const [muscle, setMuscleFilter] = useState<string | null>(null);
   const [results, setResults] = useState<Exercise[]>(initial);
   const [showCustom, setShowCustom] = useState(false);
   const [, startTransition] = useTransition();
@@ -28,11 +29,11 @@ export function ExercisePicker({
   useEffect(() => {
     const t = setTimeout(() => {
       startTransition(async () => {
-        setResults(await searchExercisesAction(query));
+        setResults(await searchExercisesAction(query, muscle ?? undefined));
       });
     }, 150);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, muscle]);
 
   return (
     <div className="flex h-full flex-col gap-3">
@@ -48,6 +49,18 @@ export function ExercisePicker({
             Done
           </Button>
         )}
+      </div>
+
+      {/* Muscle filter chips */}
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 no-scrollbar">
+        <Chip active={muscle === null} onClick={() => setMuscleFilter(null)}>
+          All
+        </Chip>
+        {MUSCLE_GROUPS.map((m) => (
+          <Chip key={m} active={muscle === m} onClick={() => setMuscleFilter(muscle === m ? null : m)}>
+            {m}
+          </Chip>
+        ))}
       </div>
 
       <div className="flex-1 space-y-1 overflow-y-auto">
@@ -86,6 +99,28 @@ export function ExercisePicker({
         </Button>
       )}
     </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={
+        "shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors " +
+        (active ? "border-accent bg-accent/15 text-accent" : "border-border text-muted")
+      }
+    >
+      {children}
+    </button>
   );
 }
 

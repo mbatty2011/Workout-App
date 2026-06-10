@@ -141,6 +141,41 @@ export function CloseIcon(p: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function FlameIcon(p: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...p}>
+      <path d="M12 3c.8 2.6-.6 4-1.8 5.2C8.7 9.7 7 11.2 7 14a5 5 0 0 0 10 0c0-1.5-.6-2.6-1.3-3.6-.4 1-.9 1.6-1.7 2.1.4-2.9-.6-6.6-2-9.5Z" />
+    </Svg>
+  );
+}
+
+export function SparkIcon(p: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...p}>
+      <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+      <path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" />
+    </Svg>
+  );
+}
+
+export function TrendIcon(p: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...p}>
+      <path d="M3 17l5.5-5.5 3.5 3.5L21 7" />
+      <path d="M15 7h6v6" />
+    </Svg>
+  );
+}
+
+export function ScaleIcon(p: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...p}>
+      <rect x="3" y="3" width="18" height="18" rx="4" />
+      <path d="M8.5 9a5.5 5.5 0 0 1 7 0l-1.8 2.5a2.6 2.6 0 0 0-3.4 0z" />
+    </Svg>
+  );
+}
+
 export function SearchIcon(p: SVGProps<SVGSVGElement>) {
   return (
     <Svg {...p}>
